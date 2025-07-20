@@ -1,0 +1,176 @@
+<div class="header">
+  <h1>🎮 Raspberry Pi Game Hub</h1>
+  <p>Scan the QR code to connect your mobile device</p>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-value" id="connected-devices">{{activeDevices}}</div>
+    <div class="stat-label">Active Devices</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value" id="total-devices">{{totalDevices}}</div>
+    <div class="stat-label">Total Devices</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">{{currentIp}}</div>
+    <div class="stat-label">Server IP</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">{{hotspotName}}</div>
+    <div class="stat-label">WiFi Network</div>
+    <div class="stat-sublabel" style="font-size: 10px; color: #888; font-style: italic">
+      {{hotspotSource}}
+    </div>
+  </div>
+</div>
+
+<div style="display: flex; gap: 20px; align-items: flex-start">
+  <div style="flex: 2">
+    <div class="content-display" id="content-display" {{#if activeContent}}style="background-color: {{activeContent.backgroundColor}}"{{/if}}>
+      {{#if activeContent}}
+      <div class="content-text" id="content-text" style="color: {{activeContent.textColor}}; font-size: {{activeContent.fontSize}}px;">
+        {{{activeContent.textContent}}}
+      </div>
+      {{#if activeContent.imageUrl}}
+      <img src="{{activeContent.imageUrl}}" alt="Content Image" class="content-image" id="content-image" />
+      {{/if}}
+      {{else}}
+      <div class="content-text loading">Waiting for content...</div>
+      {{/if}}
+    </div>
+  </div>
+
+  <div style="flex: 1">
+    <!-- WiFi QR Code - Primary -->
+    <div class="qr-code" style="margin-bottom: 20px">
+      <h3 style="margin-bottom: 10px; color: #333">
+        📱 Step 1: Auto-Connect WiFi
+      </h3>
+      {{#if wifiQrCode}}
+      <img src="{{wifiQrCode}}" alt="WiFi QR Code" style="max-width: 200px" />
+      {{else}}
+      <div style="width: 200px; height: 200px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc; border-radius: 8px;">
+        <div style="text-align: center; color: #666">
+          <div style="font-size: 24px">❌</div>
+          <div style="font-size: 12px; margin-top: 5px">
+            No QR Code<br />Password Missing
+          </div>
+        </div>
+      </div>
+      {{/if}}
+      <p style="margin-top: 10px; color: #666; font-size: 12px">
+        <strong>WiFi:</strong> {{hotspotName}}<br />
+        <strong>Password:</strong> {{hotspotPassword}}<br />
+        <small style="color: #888; font-style: italic">Source: {{hotspotSource}}</small>
+      </p>
+      {{#if passwordWarning}}
+      <div style="background: #ffe6e6; border: 1px solid #ff9999; padding: 8px; border-radius: 4px; margin-top: 8px; color: #cc0000; font-size: 11px;">
+        {{passwordWarning}}
+      </div>
+      {{/if}}
+    </div>
+
+    <!-- URL QR Code - Backup -->
+    <div class="qr-code" style="margin-bottom: 20px">
+      <h3 style="margin-bottom: 10px; color: #333">🌐 Step 2: Open Game Hub</h3>
+      <img src="{{urlQrCode}}" alt="URL QR Code" style="max-width: 200px" />
+      <p style="margin-top: 10px; color: #666; font-size: 12px">
+        {{mobileUrl}}
+      </p>
+    </div>
+
+    <!-- Instructions -->
+    <div style="background: rgba(0, 0, 0, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+      <h4 style="color: #333; margin-top: 0">How to Connect:</h4>
+      <ol style="color: #666; font-size: 12px; margin: 0; padding-left: 20px">
+        <li>Scan the <strong>WiFi QR code</strong> above</li>
+        <li>Your phone will auto-connect to <strong>{{hotspotName}}</strong></li>
+        <li>Then scan the <strong>URL QR code</strong> to open the game</li>
+        <li>Or manually go to: <strong>{{mobileUrl}}</strong></li>
+      </ol>
+    </div>
+
+    <div style="text-align: center">
+      <a href="/admin-panel/" class="btn btn-primary">
+        ⚙️ Admin Panel
+      </a>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 20px; text-align: center">
+  <p style="color: rgba(255, 255, 255, 0.8); font-size: 14px">
+    🔗 Direct WiFi Connection Mode | IP: {{currentIp}}
+  </p>
+</div>
+
+<script>
+  // Initialize Socket.IO connection
+  const socket = io();
+
+  socket.on('content_update', function(data) {
+    updateContent(data);
+  });
+
+  socket.on('connect', function() {
+    console.log('Connected to server');
+  });
+
+  socket.on('disconnect', function() {
+    console.log('Disconnected from server');
+    // Attempt to reconnect after 3 seconds
+    setTimeout(() => {
+      location.reload();
+    }, 3000);
+  });
+
+  function updateContent(content) {
+    const contentDisplay = document.getElementById('content-display');
+    const contentText = document.getElementById('content-text');
+    const contentImage = document.getElementById('content-image');
+
+    // Update background color
+    contentDisplay.style.backgroundColor = content.background_color;
+
+    // Update text content
+    if (content.text_content) {
+      if (!contentText) {
+        const textElement = document.createElement('div');
+        textElement.className = 'content-text';
+        textElement.id = 'content-text';
+        contentDisplay.appendChild(textElement);
+      }
+      document.getElementById('content-text').innerHTML = content.text_content;
+      document.getElementById('content-text').style.color = content.text_color;
+      document.getElementById('content-text').style.fontSize = content.font_size + 'px';
+    }
+
+    // Update image
+    if (content.image_url) {
+      if (!contentImage) {
+        const imageElement = document.createElement('img');
+        imageElement.className = 'content-image';
+        imageElement.id = 'content-image';
+        contentDisplay.appendChild(imageElement);
+      }
+      document.getElementById('content-image').src = content.image_url;
+      document.getElementById('content-image').style.display = 'block';
+    } else {
+      if (contentImage) {
+        contentImage.style.display = 'none';
+      }
+    }
+
+    // Add fade-in animation
+    contentDisplay.style.opacity = '0';
+    setTimeout(() => {
+      contentDisplay.style.opacity = '1';
+    }, 100);
+  }
+
+  // Keep connection alive
+  setInterval(() => {
+    socket.emit('get_active_content');
+  }, 30000); // Every 30 seconds
+</script> 

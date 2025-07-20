@@ -1,0 +1,298 @@
+<style>
+    .mobile-header {
+        background: linear-gradient(45deg, #4CAF50, #45a049);
+        color: white;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .mobile-header h2 {
+        font-size: 1.5em;
+        margin-bottom: 5px;
+    }
+    
+    .mobile-header p {
+        font-size: 0.9em;
+        opacity: 0.9;
+    }
+    
+    .connection-status {
+        background: rgba(76, 175, 80, 0.1);
+        border: 2px solid #4CAF50;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+        color: #4CAF50;
+        font-weight: bold;
+    }
+    
+    .connection-status.connected {
+        background: rgba(76, 175, 80, 0.2);
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    .mobile-content {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        min-height: 300px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    
+    .mobile-content-text {
+        font-size: 20px;
+        line-height: 1.6;
+        margin-bottom: 15px;
+        word-wrap: break-word;
+    }
+    
+    .mobile-content-image {
+        max-width: 100%;
+        max-height: 250px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .sync-indicator {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: #4CAF50;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .sync-indicator.show {
+        opacity: 1;
+    }
+    
+    .offline-message {
+        background: rgba(244, 67, 54, 0.1);
+        border: 2px solid #f44336;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+        color: #f44336;
+        font-weight: bold;
+    }
+    
+    .reconnect-btn {
+        background: #ff9800;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    
+    .reconnect-btn:hover {
+        background: #f57c00;
+    }
+</style>
+
+<div class="mobile-header">
+    <h2>📱 Connected to Game Hub</h2>
+    <p>You're now synchronized with the Raspberry Pi display</p>
+</div>
+
+<div class="connection-status connected" id="connection-status">
+    ✅ Connected and synchronized
+</div>
+
+<div class="mobile-content" id="mobile-content" {{#if activeContent}}style="background-color: {{activeContent.backgroundColor}}"{{/if}}>
+    {{#if activeContent}}
+        <div class="mobile-content-text" id="mobile-content-text" 
+             style="color: {{activeContent.textColor}}; font-size: {{activeContent.fontSize}}px;">
+            {{{activeContent.textContent}}}
+        </div>
+        {{#if activeContent.imageUrl}}
+            <img src="{{activeContent.imageUrl}}" alt="Content Image" class="mobile-content-image" id="mobile-content-image">
+        {{/if}}
+    {{else}}
+        <div class="mobile-content-text loading">
+            Waiting for content from the Pi...
+        </div>
+    {{/if}}
+</div>
+
+<div style="background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 15px; text-align: center; margin-top: 20px;">
+    <p style="color: rgba(255, 255, 255, 0.8); font-size: 14px;">
+        🔄 Content updates in real-time<br>
+        📊 Device ID: {{device.sessionId}}
+    </p>
+</div>
+
+<div class="sync-indicator" id="sync-indicator">
+    Syncing...
+</div>
+
+<script>
+    let isOnline = true;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    
+    // Initialize Socket.IO connection
+    const socket = io();
+    
+    socket.on('connect', function() {
+        console.log('WebSocket connection established');
+        isOnline = true;
+        reconnectAttempts = 0;
+        updateConnectionStatus(true);
+        showSyncIndicator();
+    });
+    
+    socket.on('content_update', function(data) {
+        updateContent(data);
+        showSyncIndicator();
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('WebSocket connection closed');
+        isOnline = false;
+        updateConnectionStatus(false);
+        
+        // Attempt to reconnect
+        if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            console.log(`Reconnection attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+            setTimeout(() => {
+                socket.connect();
+            }, 2000 * reconnectAttempts); // Exponential backoff
+        }
+    });
+    
+    function updateContent(content) {
+        const mobileContent = document.getElementById('mobile-content');
+        const contentText = document.getElementById('mobile-content-text');
+        const contentImage = document.getElementById('mobile-content-image');
+        
+        // Update background color
+        mobileContent.style.backgroundColor = content.background_color;
+        
+        // Update text content
+        if (content.text_content) {
+            if (!contentText) {
+                const textElement = document.createElement('div');
+                textElement.className = 'mobile-content-text';
+                textElement.id = 'mobile-content-text';
+                mobileContent.appendChild(textElement);
+            }
+            document.getElementById('mobile-content-text').innerHTML = content.text_content;
+            document.getElementById('mobile-content-text').style.color = content.text_color;
+            document.getElementById('mobile-content-text').style.fontSize = content.font_size + 'px';
+        }
+        
+        // Update image
+        if (content.image_url) {
+            if (!contentImage) {
+                const imageElement = document.createElement('img');
+                imageElement.className = 'mobile-content-image';
+                imageElement.id = 'mobile-content-image';
+                mobileContent.appendChild(imageElement);
+            }
+            document.getElementById('mobile-content-image').src = content.image_url;
+            document.getElementById('mobile-content-image').style.display = 'block';
+        } else {
+            if (contentImage) {
+                contentImage.style.display = 'none';
+            }
+        }
+        
+        // Add smooth transition
+        mobileContent.style.transition = 'all 0.3s ease';
+        mobileContent.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            mobileContent.style.transform = 'scale(1)';
+        }, 100);
+    }
+    
+    function updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connection-status');
+        
+        if (connected) {
+            statusElement.className = 'connection-status connected';
+            statusElement.innerHTML = '✅ Connected and synchronized';
+            statusElement.style.display = 'block';
+            
+            // Hide offline message if it exists
+            const offlineMessage = document.getElementById('offline-message');
+            if (offlineMessage) {
+                offlineMessage.remove();
+            }
+        } else {
+            statusElement.className = 'connection-status';
+            statusElement.innerHTML = '❌ Connection lost';
+            statusElement.style.borderColor = '#f44336';
+            statusElement.style.color = '#f44336';
+            
+            // Show offline message
+            if (!document.getElementById('offline-message')) {
+                const offlineMessage = document.createElement('div');
+                offlineMessage.id = 'offline-message';
+                offlineMessage.className = 'offline-message';
+                offlineMessage.innerHTML = `
+                    ⚠️ Lost connection to the Pi<br>
+                    Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})
+                    <br>
+                    <button class="reconnect-btn" onclick="location.reload()">
+                        Reload Page
+                    </button>
+                `;
+                statusElement.parentNode.insertBefore(offlineMessage, statusElement.nextSibling);
+            }
+        }
+    }
+    
+    function showSyncIndicator() {
+        const indicator = document.getElementById('sync-indicator');
+        indicator.classList.add('show');
+        setTimeout(() => {
+            indicator.classList.remove('show');
+        }, 1000);
+    }
+    
+    // Send heartbeat to keep connection alive
+    setInterval(() => {
+        if (socket.connected) {
+            socket.emit('device_heartbeat', {
+                'session_id': '{{device.sessionId}}'
+            });
+        }
+    }, 30000); // Every 30 seconds
+    
+    // Handle page visibility to manage connections
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            console.log('Page is hidden');
+        } else {
+            console.log('Page is visible');
+            if (!socket.connected) {
+                socket.connect();
+            }
+        }
+    });
+</script> 
