@@ -154,89 +154,132 @@
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
     
-    // Initialize Socket.IO connection
-    const socket = io();
+    // Initialize Socket.IO connection with better error handling
+    const socket = io({
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        rememberUpgrade: true
+    });
     
+    // Connection event handlers
     socket.on('connect', function() {
-        console.log('WebSocket connection established');
+        console.log('✅ WebSocket connection established, ID:', socket.id);
         isOnline = true;
         reconnectAttempts = 0;
         updateConnectionStatus(true);
         showSyncIndicator();
+        
+        // Request current active content on connect
+        socket.emit('get_active_content');
     });
     
     socket.on('content_update', function(data) {
+        console.log('📱 Received content update:', data);
         updateContent(data);
         showSyncIndicator();
     });
     
-    socket.on('disconnect', function() {
-        console.log('WebSocket connection closed');
+    socket.on('disconnect', function(reason) {
+        console.log('❌ WebSocket connection closed, reason:', reason);
         isOnline = false;
         updateConnectionStatus(false);
         
-        // Attempt to reconnect
-        if (reconnectAttempts < maxReconnectAttempts) {
+        // Attempt to reconnect only if not intentionally disconnected
+        if (reason !== 'io client disconnect' && reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
-            console.log(`Reconnection attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+            console.log(`🔄 Reconnection attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
             setTimeout(() => {
                 socket.connect();
             }, 2000 * reconnectAttempts); // Exponential backoff
         }
     });
     
+    socket.on('connect_error', function(error) {
+        console.error('❌ Connection error:', error);
+        updateConnectionStatus(false);
+    });
+    
+    // Enhanced content update function
     function updateContent(content) {
+        console.log('🔄 Updating mobile content with:', content);
+        
         const mobileContent = document.getElementById('mobile-content');
-        const contentText = document.getElementById('mobile-content-text');
-        const contentImage = document.getElementById('mobile-content-image');
+        if (!mobileContent) {
+            console.error('❌ Mobile content container not found');
+            return;
+        }
         
-        // Update background color
-        mobileContent.style.backgroundColor = content.background_color;
+        // Clear existing content
+        mobileContent.innerHTML = '';
         
-        // Update text content
+        // Apply background color
+        if (content.background_color) {
+            mobileContent.style.backgroundColor = content.background_color;
+            console.log('🎨 Applied background color:', content.background_color);
+        }
+        
+        // Add text content
         if (content.text_content) {
-            if (!contentText) {
-                const textElement = document.createElement('div');
-                textElement.className = 'mobile-content-text';
-                textElement.id = 'mobile-content-text';
-                mobileContent.appendChild(textElement);
+            const textElement = document.createElement('div');
+            textElement.className = 'mobile-content-text';
+            textElement.id = 'mobile-content-text';
+            textElement.innerHTML = content.text_content;
+            
+            if (content.text_color) {
+                textElement.style.color = content.text_color;
             }
-            document.getElementById('mobile-content-text').innerHTML = content.text_content;
-            document.getElementById('mobile-content-text').style.color = content.text_color;
-            document.getElementById('mobile-content-text').style.fontSize = content.font_size + 'px';
+            if (content.font_size) {
+                textElement.style.fontSize = content.font_size + 'px';
+            }
+            
+            mobileContent.appendChild(textElement);
+            console.log('📝 Added text content:', content.text_content.substring(0, 50));
         }
         
-        // Update image
+        // Add image content
         if (content.image_url) {
-            if (!contentImage) {
-                const imageElement = document.createElement('img');
-                imageElement.className = 'mobile-content-image';
-                imageElement.id = 'mobile-content-image';
-                mobileContent.appendChild(imageElement);
-            }
-            document.getElementById('mobile-content-image').src = content.image_url;
-            document.getElementById('mobile-content-image').style.display = 'block';
-        } else {
-            if (contentImage) {
-                contentImage.style.display = 'none';
-            }
+            const imageElement = document.createElement('img');
+            imageElement.className = 'mobile-content-image';
+            imageElement.id = 'mobile-content-image';
+            imageElement.src = content.image_url;
+            imageElement.alt = 'Content Image';
+            imageElement.style.display = 'block';
+            
+            // Handle image load errors
+            imageElement.onerror = function() {
+                console.error('❌ Failed to load image:', content.image_url);
+                this.style.display = 'none';
+            };
+            
+            imageElement.onload = function() {
+                console.log('🖼️ Image loaded successfully:', content.image_url);
+            };
+            
+            mobileContent.appendChild(imageElement);
         }
         
-        // Add smooth transition
+        // Add smooth transition effect
         mobileContent.style.transition = 'all 0.3s ease';
         mobileContent.style.transform = 'scale(0.95)';
+        mobileContent.style.opacity = '0.8';
+        
         setTimeout(() => {
             mobileContent.style.transform = 'scale(1)';
+            mobileContent.style.opacity = '1';
         }, 100);
+        
+        console.log('✅ Content update completed');
     }
     
     function updateConnectionStatus(connected) {
         const statusElement = document.getElementById('connection-status');
+        if (!statusElement) return;
         
         if (connected) {
             statusElement.className = 'connection-status connected';
             statusElement.innerHTML = '✅ Connected and synchronized';
-            statusElement.style.display = 'block';
+            statusElement.style.borderColor = '#4CAF50';
+            statusElement.style.color = '#4CAF50';
             
             // Hide offline message if it exists
             const offlineMessage = document.getElementById('offline-message');
@@ -245,7 +288,7 @@
             }
         } else {
             statusElement.className = 'connection-status';
-            statusElement.innerHTML = '❌ Connection lost';
+            statusElement.innerHTML = '❌ Connection lost - Trying to reconnect...';
             statusElement.style.borderColor = '#f44336';
             statusElement.style.color = '#f44336';
             
@@ -255,9 +298,12 @@
                 offlineMessage.id = 'offline-message';
                 offlineMessage.className = 'offline-message';
                 offlineMessage.innerHTML = `
-                    ⚠️ Lost connection to the Pi<br>
+                    ⚠️ Lost connection to the Game Hub<br>
                     Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})
                     <br>
+                    <button class="reconnect-btn" onclick="forceReconnect()">
+                        Force Reconnect
+                    </button>
                     <button class="reconnect-btn" onclick="location.reload()">
                         Reload Page
                     </button>
@@ -269,30 +315,68 @@
     
     function showSyncIndicator() {
         const indicator = document.getElementById('sync-indicator');
-        indicator.classList.add('show');
+        if (indicator) {
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 1500);
+        }
+    }
+    
+    function forceReconnect() {
+        console.log('🔄 Force reconnecting...');
+        reconnectAttempts = 0;
+        socket.disconnect();
         setTimeout(() => {
-            indicator.classList.remove('show');
+            socket.connect();
         }, 1000);
     }
     
-    // Send heartbeat to keep connection alive
+    // Send heartbeat to keep connection alive and track device
     setInterval(() => {
         if (socket.connected) {
             socket.emit('device_heartbeat', {
-                'session_id': '{{device.sessionId}}'
+                'session_id': '{{device.sessionId}}',
+                'timestamp': new Date().toISOString(),
+                'device_type': 'mobile'
             });
+            console.log('💓 Heartbeat sent');
+        } else {
+            console.log('💔 Heartbeat skipped - not connected');
         }
     }, 30000); // Every 30 seconds
     
-    // Handle page visibility to manage connections
+    // Enhanced page visibility handling
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-            console.log('Page is hidden');
+            console.log('📱 Page is now hidden');
         } else {
-            console.log('Page is visible');
+            console.log('📱 Page is now visible');
             if (!socket.connected) {
+                console.log('🔄 Page visible but not connected, attempting reconnect...');
                 socket.connect();
+            } else {
+                // Request fresh content when page becomes visible
+                socket.emit('get_active_content');
             }
         }
     });
+    
+    // Request content update when page loads
+    window.addEventListener('load', () => {
+        console.log('📱 Mobile page loaded, requesting active content...');
+        if (socket.connected) {
+            socket.emit('get_active_content');
+        }
+    });
+    
+    // Debug connection status every 10 seconds
+    setInterval(() => {
+        console.log('🔍 Connection status:', {
+            connected: socket.connected,
+            id: socket.id,
+            isOnline: isOnline,
+            reconnectAttempts: reconnectAttempts
+        });
+    }, 10000);
 </script> 

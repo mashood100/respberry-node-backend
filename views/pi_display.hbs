@@ -106,71 +106,186 @@
 </div>
 
 <script>
-  // Initialize Socket.IO connection
-  const socket = io();
+  // Initialize Socket.IO connection with enhanced configuration
+  const socket = io({
+    transports: ['websocket', 'polling'],
+    upgrade: true,
+    rememberUpgrade: true
+  });
+
+  let reconnectAttempts = 0;
+  const maxReconnectAttempts = 3;
+
+  // Connection event handlers
+  socket.on('connect', function() {
+    console.log('🖥️ Pi Display connected to server, ID:', socket.id);
+    reconnectAttempts = 0;
+    updateConnectionIndicator(true);
+    
+    // Request current active content on connect
+    socket.emit('get_active_content');
+  });
 
   socket.on('content_update', function(data) {
+    console.log('🖥️ Pi Display received content update:', data);
     updateContent(data);
+    updateConnectionIndicator(true);
   });
 
-  socket.on('connect', function() {
-    console.log('Connected to server');
+  socket.on('disconnect', function(reason) {
+    console.log('❌ Pi Display disconnected from server, reason:', reason);
+    updateConnectionIndicator(false);
+    
+    // Attempt to reconnect
+    if (reason !== 'io client disconnect' && reconnectAttempts < maxReconnectAttempts) {
+      reconnectAttempts++;
+      console.log(`🔄 Pi Display reconnection attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+      setTimeout(() => {
+        socket.connect();
+      }, 3000);
+    } else if (reconnectAttempts >= maxReconnectAttempts) {
+      console.log('🔄 Max reconnection attempts reached, reloading page...');
+      setTimeout(() => {
+        location.reload();
+      }, 5000);
+    }
   });
 
-  socket.on('disconnect', function() {
-    console.log('Disconnected from server');
-    // Attempt to reconnect after 3 seconds
-    setTimeout(() => {
-      location.reload();
-    }, 3000);
+  socket.on('connect_error', function(error) {
+    console.error('❌ Pi Display connection error:', error);
+    updateConnectionIndicator(false);
   });
 
+  // Enhanced content update function
   function updateContent(content) {
+    console.log('🔄 Updating Pi display content with:', content);
+    
     const contentDisplay = document.getElementById('content-display');
-    const contentText = document.getElementById('content-text');
-    const contentImage = document.getElementById('content-image');
+    if (!contentDisplay) {
+      console.error('❌ Content display container not found');
+      return;
+    }
 
-    // Update background color
-    contentDisplay.style.backgroundColor = content.background_color;
+    // Clear existing content
+    contentDisplay.innerHTML = '';
 
-    // Update text content
+    // Apply background color
+    if (content.background_color) {
+      contentDisplay.style.backgroundColor = content.background_color;
+      console.log('🎨 Applied background color:', content.background_color);
+    }
+
+    // Add text content
     if (content.text_content) {
-      if (!contentText) {
-        const textElement = document.createElement('div');
-        textElement.className = 'content-text';
-        textElement.id = 'content-text';
-        contentDisplay.appendChild(textElement);
+      const textElement = document.createElement('div');
+      textElement.className = 'content-text';
+      textElement.id = 'content-text';
+      textElement.innerHTML = content.text_content;
+      
+      if (content.text_color) {
+        textElement.style.color = content.text_color;
       }
-      document.getElementById('content-text').innerHTML = content.text_content;
-      document.getElementById('content-text').style.color = content.text_color;
-      document.getElementById('content-text').style.fontSize = content.font_size + 'px';
+      if (content.font_size) {
+        textElement.style.fontSize = content.font_size + 'px';
+      }
+      
+      contentDisplay.appendChild(textElement);
+      console.log('📝 Added text content to Pi display');
     }
 
-    // Update image
+    // Add image content
     if (content.image_url) {
-      if (!contentImage) {
-        const imageElement = document.createElement('img');
-        imageElement.className = 'content-image';
-        imageElement.id = 'content-image';
-        contentDisplay.appendChild(imageElement);
-      }
-      document.getElementById('content-image').src = content.image_url;
-      document.getElementById('content-image').style.display = 'block';
-    } else {
-      if (contentImage) {
-        contentImage.style.display = 'none';
-      }
+      const imageElement = document.createElement('img');
+      imageElement.className = 'content-image';
+      imageElement.id = 'content-image';
+      imageElement.src = content.image_url;
+      imageElement.alt = 'Content Image';
+      imageElement.style.display = 'block';
+      
+      // Handle image load errors
+      imageElement.onerror = function() {
+        console.error('❌ Failed to load image on Pi display:', content.image_url);
+        this.style.display = 'none';
+      };
+      
+      imageElement.onload = function() {
+        console.log('🖼️ Image loaded successfully on Pi display');
+      };
+      
+      contentDisplay.appendChild(imageElement);
     }
 
-    // Add fade-in animation
+    // Add smooth transition animation
+    contentDisplay.style.transition = 'all 0.5s ease';
     contentDisplay.style.opacity = '0';
+    contentDisplay.style.transform = 'scale(0.98)';
+    
     setTimeout(() => {
       contentDisplay.style.opacity = '1';
+      contentDisplay.style.transform = 'scale(1)';
     }, 100);
+    
+    console.log('✅ Pi display content update completed');
   }
 
-  // Keep connection alive
+  // Add connection status indicator
+  function updateConnectionIndicator(connected) {
+    let indicator = document.getElementById('connection-indicator');
+    
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.id = 'connection-indicator';
+      indicator.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        z-index: 1000;
+        transition: all 0.3s ease;
+      `;
+      document.body.appendChild(indicator);
+    }
+    
+    if (connected) {
+      indicator.style.backgroundColor = '#4CAF50';
+      indicator.style.color = 'white';
+      indicator.innerHTML = '🟢 Connected';
+      indicator.style.opacity = '0.8';
+    } else {
+      indicator.style.backgroundColor = '#f44336';
+      indicator.style.color = 'white';
+      indicator.innerHTML = '🔴 Disconnected';
+      indicator.style.opacity = '1';
+    }
+  }
+
+  // Enhanced heartbeat and content sync
   setInterval(() => {
-    socket.emit('get_active_content');
+    if (socket.connected) {
+      socket.emit('get_active_content');
+      console.log('💓 Pi Display heartbeat and content sync');
+    } else {
+      console.log('💔 Pi Display heartbeat skipped - not connected');
+    }
   }, 30000); // Every 30 seconds
+
+  // Request content update when page loads
+  window.addEventListener('load', () => {
+    console.log('🖥️ Pi Display page loaded, requesting active content...');
+    if (socket.connected) {
+      socket.emit('get_active_content');
+    }
+  });
+
+  // Debug connection status every 15 seconds
+  setInterval(() => {
+    console.log('🔍 Pi Display connection status:', {
+      connected: socket.connected,
+      id: socket.id,
+      reconnectAttempts: reconnectAttempts
+    });
+  }, 15000);
 </script> 
