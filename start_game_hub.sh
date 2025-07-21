@@ -482,135 +482,7 @@ install_nodejs_dependencies() {
     fi
 }
 
-# Function to setup hotspot based on OS
-setup_hotspot_by_os() {
-    echo "🔧 Setting up hotspot for $OS_TYPE..."
-    
-    case $OS_TYPE in
-        "raspberry_pi"|"linux")
-            setup_linux_hotspot
-            ;;
-        "macos")
-            setup_macos_hotspot
-            ;;
-        "windows")
-            setup_windows_hotspot
-            ;;
-        *)
-            echo "⚠️  Hotspot setup not available for this OS"
-            echo "   The app will run in localhost mode"
-            return 1
-            ;;
-    esac
-}
 
-# Function to setup Linux/Pi hotspot
-setup_linux_hotspot() {
-    echo "🐧 Setting up Linux hotspot..."
-    
-    # Check if hostapd and dnsmasq are available
-    if ! command -v hostapd &> /dev/null || ! command -v dnsmasq &> /dev/null; then
-        echo "❌ hostapd or dnsmasq not available"
-        return 1
-    fi
-    
-    # Create hostapd configuration
-    echo "📝 Creating hotspot configuration..."
-    sudo tee /etc/hostapd/hostapd.conf > /dev/null << EOF
-interface=$WIFI_INTERFACE
-driver=nl80211
-ssid=$HOTSPOT_SSID
-hw_mode=g
-channel=7
-wmm_enabled=0
-macaddr_acl=0
-auth_algs=1
-ignore_broadcast_ssid=0
-wpa=2
-wpa_passphrase=$HOTSPOT_PASSWORD
-wpa_key_mgmt=WPA-PSK
-wpa_pairwise=TKIP
-rsn_pairwise=CCMP
-EOF
-
-    # Create dnsmasq configuration
-    sudo tee /etc/dnsmasq.conf > /dev/null << EOF
-interface=$WIFI_INTERFACE
-dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
-domain=wlan
-address=/gw.wlan/$HOTSPOT_IP
-EOF
-
-    # Configure interface
-    sudo ifconfig $WIFI_INTERFACE $HOTSPOT_IP netmask 255.255.255.0 2>/dev/null
-    
-    # Start services
-    echo "🚀 Starting hotspot services..."
-    sudo hostapd /etc/hostapd/hostapd.conf -B &
-    show_spinner $! "Starting hostapd"
-    
-    sudo dnsmasq -C /etc/dnsmasq.conf &
-    show_spinner $! "Starting dnsmasq"
-    
-    if pgrep hostapd > /dev/null && pgrep dnsmasq > /dev/null; then
-        echo "✅ Linux hotspot started successfully"
-        return 0
-    else
-        echo "❌ Failed to start Linux hotspot"
-        return 1
-    fi
-}
-
-# Function to setup macOS hotspot
-setup_macos_hotspot() {
-    echo "🍎 Setting up macOS hotspot..."
-    
-    # Check if Internet Sharing is available
-    if ! pgrep -f "InternetSharing" > /dev/null 2>&1; then
-        echo "📋 Manual macOS setup required:"
-        echo "   1. Go to System Preferences → Sharing"
-        echo "   2. Select 'Internet Sharing'"
-        echo "   3. Share from: Wi-Fi, To: Wi-Fi"
-        echo "   4. Set WiFi Options:"
-        echo "      - Network Name: $HOTSPOT_SSID"
-        echo "      - Password: $HOTSPOT_PASSWORD"
-        echo "   5. Enable Internet Sharing"
-        echo ""
-        echo "⏳ Press ENTER when setup is complete..."
-        read -p ""
-    else
-        echo "✅ macOS Internet Sharing already active"
-    fi
-    
-    return 0
-}
-
-# Function to setup Windows hotspot
-setup_windows_hotspot() {
-    echo "🪟 Setting up Windows hotspot..."
-    
-    if command -v netsh.exe &> /dev/null; then
-        echo "🔧 Configuring Windows Mobile Hotspot..."
-        netsh.exe wlan set hostednetwork mode=allow ssid="$HOTSPOT_SSID" key="$HOTSPOT_PASSWORD" &
-        show_spinner $! "Configuring hotspot"
-        
-        netsh.exe wlan start hostednetwork &
-        show_spinner $! "Starting hotspot"
-        
-        echo "✅ Windows hotspot configured"
-    else
-        echo "📋 Manual Windows setup required:"
-        echo "   1. Open Settings → Network & Internet → Mobile hotspot"
-        echo "   2. Set Network name: $HOTSPOT_SSID"
-        echo "   3. Set Network password: $HOTSPOT_PASSWORD"
-        echo "   4. Turn on Mobile hotspot"
-        echo ""
-        echo "⏳ Press ENTER when setup is complete..."
-        read -p ""
-    fi
-    
-    return 0
-}
 
 # Main execution starts here
 echo ""
@@ -719,19 +591,39 @@ install_system_dependencies
 # Install Node.js dependencies
 install_nodejs_dependencies
 
-# Setup hotspot
+# Check hotspot configuration (don't set it up)
+echo "📡 Checking hotspot configuration..."
+echo "💡 Use your existing hotspot setup script to configure the actual hotspot"
 HOTSPOT_SUCCESS=false
-if setup_hotspot_by_os; then
-    HOTSPOT_SUCCESS=true
-fi
+case $OS_TYPE in
+    "raspberry_pi"|"linux")
+        if pgrep hostapd > /dev/null && pgrep dnsmasq > /dev/null; then
+            echo "✅ Hotspot services are running"
+            HOTSPOT_SUCCESS=true
+        else
+            echo "⚠️  Hotspot services not running - use your setup script first"
+        fi
+        ;;
+    "macos")
+        if pgrep -f "InternetSharing" > /dev/null 2>&1; then
+            echo "✅ macOS Internet Sharing is active"
+            HOTSPOT_SUCCESS=true
+        else
+            echo "⚠️  macOS Internet Sharing not active - configure manually"
+        fi
+        ;;
+    "windows")
+        echo "💡 Check Windows Mobile Hotspot manually in Settings"
+        HOTSPOT_SUCCESS=true  # Assume it's configured
+        ;;
+esac
 
-# Initialize database
-echo "🗄️ Setting up database..."
+# Show info about in-memory storage
+echo "💾 Using in-memory storage (no database setup needed)..."
 if [ -f "scripts/init-db.js" ]; then
-    $NODE_CMD scripts/init-db.js > /dev/null 2>&1 &
-    show_spinner $! "Initializing database"
+    echo "📊 Sample content will be created automatically when server starts"
 else
-    echo "⚠️  Database initialization script not found - database will be created automatically"
+    echo "⚠️  Info script not found - sample content will still be created"
 fi
 
 # Detect IP address
@@ -779,13 +671,14 @@ echo "📦 npm Version: $NPM_VERSION ($NPM_CMD)"
 echo "🌐 Server IP: $DETECTED_IP"
 
 if [ "$HOTSPOT_SUCCESS" = true ]; then
-    echo "📡 Hotspot Mode: ACTIVE"
+    echo "📡 Hotspot Status: DETECTED/ACTIVE"
     echo "📱 Hotspot SSID: $HOTSPOT_SSID"
     echo "🔑 Hotspot Password: $HOTSPOT_PASSWORD"
     echo "🔧 Configuration Source: $HOTSPOT_SOURCE"
 else
-    echo "📡 Hotspot Mode: DISABLED"
-    echo "🌐 Network Mode: Using existing connection"
+    echo "📡 Hotspot Status: NOT DETECTED/INACTIVE"
+    echo "🌐 Network Mode: Will use local network IP"
+    echo "💡 Set up hotspot using your existing script, then restart"
 fi
 
 echo ""
@@ -800,11 +693,13 @@ if [ "$HOTSPOT_SUCCESS" = true ]; then
     echo "   1. Connect to WiFi: '$HOTSPOT_SSID'"
     echo "   2. Enter password: '$HOTSPOT_PASSWORD'"
     echo "   3. Scan QR code OR go to: http://$DETECTED_IP:$SERVER_PORT/mobile/"
-    echo "   📝 Note: Using $HOTSPOT_SOURCE for hotspot configuration"
+    echo "   📝 Note: Using $HOTSPOT_SOURCE for QR code generation"
 else
-    echo "📋 NETWORK MODE USAGE:"
-    echo "   • Ensure devices are on same network as this computer"
-    echo "   • Or manually set up hotspot '$HOTSPOT_SSID' and restart"
+    echo "📋 SETUP REQUIRED:"
+    echo "   1. Use your existing hotspot setup script to configure hotspot"
+    echo "   2. Set SSID to: '$HOTSPOT_SSID' and password to: '$HOTSPOT_PASSWORD'"
+    echo "   3. Or ensure devices are on same network as this computer"
+    echo "   4. Restart this script after hotspot is configured"
 fi
 
 echo ""

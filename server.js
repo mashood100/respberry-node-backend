@@ -10,7 +10,6 @@ const cors = require('cors');
 const fs = require('fs');
 
 // Import our modules
-const Database = require('./src/database');
 const NetworkUtils = require('./src/network-utils');
 const QRCodeGenerator = require('./src/qr-generator');
 
@@ -23,9 +22,101 @@ const io = socketIo(server, {
     }
 });
 
-// Database setup
-const db = new Database();
-db.startCleanupInterval(); // Start periodic cleanup
+// In-memory storage for proof of concept
+const gameData = {
+    contents: [],
+    devices: [],
+    activeContentId: null
+};
+
+// Simple data management functions
+function createContent(data) {
+    const content = {
+        id: uuidv4(),
+        title: data.title,
+        contentType: data.contentType || 'text',
+        textContent: data.textContent || '',
+        imageUrl: data.imageUrl || null,
+        backgroundColor: data.backgroundColor || '#ffffff',
+        textColor: data.textColor || '#000000',
+        fontSize: data.fontSize || 24,
+        isActive: false,
+        createdAt: new Date().toISOString()
+    };
+    gameData.contents.push(content);
+    return content;
+}
+
+function activateContent(contentId) {
+    // Deactivate all content
+    gameData.contents.forEach(content => content.isActive = false);
+    
+    // Activate the specified content
+    const content = gameData.contents.find(c => c.id === contentId);
+    if (content) {
+        content.isActive = true;
+        gameData.activeContentId = contentId;
+        return content;
+    }
+    return null;
+}
+
+function getActiveContent() {
+    return gameData.contents.find(content => content.isActive) || null;
+}
+
+function getAllContent() {
+    return gameData.contents.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function trackDevice(sessionId, ipAddress, userAgent) {
+    let device = gameData.devices.find(d => d.sessionId === sessionId);
+    
+    if (device) {
+        device.isActive = true;
+        device.lastSeen = new Date().toISOString();
+    } else {
+        device = {
+            id: uuidv4(),
+            sessionId,
+            ipAddress,
+            userAgent,
+            connectedAt: new Date().toISOString(),
+            lastSeen: new Date().toISOString(),
+            isActive: true
+        };
+        gameData.devices.push(device);
+    }
+    
+    return device;
+}
+
+function getDeviceStats() {
+    const totalDevices = gameData.devices.length;
+    const activeDevices = gameData.devices.filter(d => d.isActive).length;
+    return { totalDevices, activeDevices };
+}
+
+// Create some initial sample content
+const sampleContent1 = createContent({
+    title: 'Welcome to Game Hub!',
+    contentType: 'text',
+    textContent: '🎮 Welcome to the Node.js Game Hub!<br><br>Connect your mobile devices and enjoy synchronized content.<br><br>Visit the admin panel to create your own content.',
+    backgroundColor: '#4CAF50',
+    textColor: '#ffffff',
+    fontSize: 28
+});
+
+activateContent(sampleContent1.id);
+
+createContent({
+    title: 'Instructions',
+    contentType: 'text',
+    textContent: '📱 How to Connect:<br><br>1. Scan the WiFi QR code<br>2. Scan the URL QR code<br>3. Enjoy synchronized content!',
+    backgroundColor: '#2196F3',
+    textColor: '#ffffff',
+    fontSize: 24
+});
 
 // Middleware
 app.use(cors());
@@ -98,8 +189,8 @@ app.get('/', async (req, res) => {
         }
         
         const urlQrCode = await QRCodeGenerator.generateQrCode(mobileUrl);
-        const activeContent = db.getActiveContent();
-        const stats = db.getDeviceStats();
+        const activeContent = getActiveContent();
+        const stats = getDeviceStats();
         
         res.render('pi_display', {
             currentIp,
@@ -131,10 +222,10 @@ app.get('/mobile/', (req, res) => {
         const userAgent = req.headers['user-agent'] || '';
         
         // Track this device
-        const device = db.trackDevice(sessionId, ip, userAgent);
+        const device = trackDevice(sessionId, ip, userAgent);
         
         // Get active content
-        const activeContent = db.getActiveContent();
+        const activeContent = getActiveContent();
         
         res.render('mobile_display', {
             activeContent,
@@ -151,8 +242,8 @@ app.get('/mobile/', (req, res) => {
 // Content Management Route
 app.get('/admin-panel/', (req, res) => {
     try {
-        const contents = db.getAllContent();
-        const activeContent = db.getActiveContent();
+        const contents = getAllContent();
+        const activeContent = getActiveContent();
         
         res.render('content_management', {
             contents,
@@ -180,7 +271,7 @@ app.post('/api/content/create/', upload.single('image'), (req, res) => {
         
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
         
-        const content = db.createContent({
+        const content = createContent({
             title,
             contentType: content_type,
             textContent: text_content,
@@ -216,7 +307,7 @@ app.post('/api/content/update/', (req, res) => {
             });
         }
         
-        const content = db.activateContent(content_id);
+        const content = activateContent(content_id);
         
         if (!content) {
             return res.json({
@@ -253,7 +344,7 @@ app.post('/api/content/update/', (req, res) => {
 // Get active content
 app.get('/api/content/active/', (req, res) => {
     try {
-        const activeContent = db.getActiveContent();
+        const activeContent = getActiveContent();
         
         if (activeContent) {
             res.json({
@@ -287,7 +378,7 @@ app.get('/api/content/active/', (req, res) => {
 // Get device stats
 app.get('/api/stats/', async (req, res) => {
     try {
-        const stats = db.getDeviceStats();
+        const stats = getDeviceStats();
         const currentIp = await NetworkUtils.getLocalIp();
         const [hotspotName] = await NetworkUtils.getDeviceHotspotSettings();
         
@@ -313,7 +404,7 @@ io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
     
     // Send current active content to newly connected client
-    const activeContent = db.getActiveContent();
+    const activeContent = getActiveContent();
     if (activeContent) {
         socket.emit('content_update', {
             id: activeContent.id,
@@ -330,13 +421,18 @@ io.on('connection', (socket) => {
     // Handle device heartbeat
     socket.on('device_heartbeat', (data) => {
         if (data.session_id) {
-            db.updateDeviceActivity(data.session_id);
+            // Update device activity in memory
+            const device = gameData.devices.find(d => d.sessionId === data.session_id);
+            if (device) {
+                device.lastSeen = new Date().toISOString();
+                device.isActive = true;
+            }
         }
     });
     
     // Handle get active content request
     socket.on('get_active_content', () => {
-        const activeContent = db.getActiveContent();
+        const activeContent = getActiveContent();
         if (activeContent) {
             socket.emit('content_update', {
                 id: activeContent.id,

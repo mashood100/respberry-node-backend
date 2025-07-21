@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Raspberry Pi Game Hub - Hotspot Setup Script (Node.js Version)
-# Focused script for setting up hotspot only
-# Supports: Raspberry Pi OS, macOS, Windows (WSL), and Linux
+# Raspberry Pi Game Hub - Hotspot Configuration Checker (Node.js Version)
+# Detects and displays existing hotspot configurations
+# Does NOT configure hotspot - use your existing hotspot setup script for that
 
-echo "📡 Game Hub Hotspot Setup - Node.js Version"
-echo "============================================"
+echo "📡 Game Hub Hotspot Configuration Checker"
+echo "=========================================="
 
 # Default fallback configuration
 DEFAULT_HOTSPOT_SSID="GameHub-Direct"
@@ -229,227 +229,33 @@ prompt_hotspot_settings() {
     esac
 }
 
-# Function to install hotspot dependencies
-install_hotspot_dependencies() {
-    echo "📦 Installing hotspot dependencies for $OS_TYPE..."
+# Function to check if hotspot is configured
+check_hotspot_configured() {
+    echo "🔍 Checking if hotspot is properly configured..."
     
     case $OS_TYPE in
         "raspberry_pi"|"linux")
-            echo "🔄 Installing hostapd and dnsmasq..."
-            sudo apt update -qq &
-            show_spinner $! "Updating package lists"
-            
-            sudo apt install -y hostapd dnsmasq &
-            show_spinner $! "Installing hotspot packages"
-            
-            # Stop services initially
-            sudo systemctl stop hostapd dnsmasq 2>/dev/null || true
-            sudo systemctl disable hostapd dnsmasq 2>/dev/null || true
+            if command -v hostapd &> /dev/null && command -v dnsmasq &> /dev/null; then
+                echo "✅ hostapd and dnsmasq are installed"
+                if [ -f "/etc/hostapd/hostapd.conf" ]; then
+                    echo "✅ hostapd configuration exists"
+                else
+                    echo "⚠️  hostapd configuration missing"
+                fi
+            else
+                echo "⚠️  hostapd or dnsmasq not installed"
+            fi
             ;;
-            
         "macos")
-            echo "✅ macOS uses built-in Internet Sharing - no additional packages needed"
+            echo "💡 Use System Preferences → Sharing → Internet Sharing to configure"
             ;;
-            
         "windows")
-            echo "✅ Windows uses built-in Mobile Hotspot - no additional packages needed"
-            ;;
-            
-        *)
-            echo "⚠️  Unknown OS - hotspot setup may not be available"
+            echo "💡 Use Settings → Network & Internet → Mobile hotspot to configure"
             ;;
     esac
 }
 
-# Function to setup Linux/Pi hotspot
-setup_linux_hotspot() {
-    echo "🐧 Setting up Linux hotspot..."
-    
-    # Check if required tools are available
-    if ! command -v hostapd &> /dev/null || ! command -v dnsmasq &> /dev/null; then
-        echo "❌ hostapd or dnsmasq not available"
-        return 1
-    fi
-    
-    # Stop any existing instances
-    sudo pkill hostapd 2>/dev/null || true
-    sudo pkill dnsmasq 2>/dev/null || true
-    
-    # Create hostapd configuration
-    echo "📝 Creating hostapd configuration..."
-    sudo tee /etc/hostapd/hostapd.conf > /dev/null << EOF
-# Game Hub Hotspot Configuration
-interface=$WIFI_INTERFACE
-driver=nl80211
-ssid=$HOTSPOT_SSID
-hw_mode=g
-channel=7
-wmm_enabled=0
-macaddr_acl=0
-auth_algs=1
-ignore_broadcast_ssid=0
-wpa=2
-wpa_passphrase=$HOTSPOT_PASSWORD
-wpa_key_mgmt=WPA-PSK
-wpa_pairwise=TKIP
-rsn_pairwise=CCMP
-EOF
 
-    # Create dnsmasq configuration
-    echo "📝 Creating dnsmasq configuration..."
-    sudo tee /etc/dnsmasq.d/gamehub.conf > /dev/null << EOF
-# Game Hub DHCP Configuration
-interface=$WIFI_INTERFACE
-dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
-domain=local
-address=/gamehub.local/$HOTSPOT_IP
-EOF
-
-    # Configure network interface
-    echo "🔧 Configuring network interface..."
-    sudo ifconfig $WIFI_INTERFACE down 2>/dev/null || true
-    sudo ifconfig $WIFI_INTERFACE $HOTSPOT_IP netmask 255.255.255.0 up 2>/dev/null
-    
-    # Start services
-    echo "🚀 Starting hotspot services..."
-    
-    # Start hostapd in background
-    sudo hostapd /etc/hostapd/hostapd.conf -B &
-    show_spinner $! "Starting hostapd"
-    
-    # Start dnsmasq
-    sudo dnsmasq -C /etc/dnsmasq.d/gamehub.conf &
-    show_spinner $! "Starting dnsmasq"
-    
-    # Verify services are running
-    sleep 2
-    if pgrep hostapd > /dev/null && pgrep dnsmasq > /dev/null; then
-        echo "✅ Linux hotspot started successfully"
-        
-        # Enable IP forwarding
-        echo "🔧 Enabling IP forwarding..."
-        echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward > /dev/null
-        
-        return 0
-    else
-        echo "❌ Failed to start Linux hotspot services"
-        echo "🔍 Troubleshooting tips:"
-        echo "   • Check if WiFi interface '$WIFI_INTERFACE' exists"
-        echo "   • Ensure no other network manager is controlling the interface"
-        echo "   • Try: sudo systemctl stop NetworkManager (temporarily)"
-        return 1
-    fi
-}
-
-# Function to setup macOS hotspot
-setup_macos_hotspot() {
-    echo "🍎 Setting up macOS hotspot..."
-    
-    echo "📋 Manual macOS Internet Sharing setup:"
-    echo "========================================"
-    echo ""
-    echo "1. Open System Preferences (or System Settings)"
-    echo "2. Go to Sharing"
-    echo "3. Select 'Internet Sharing' from the list"
-    echo "4. Configure the following:"
-    echo "   • Share your connection from: Wi-Fi (or Ethernet)"
-    echo "   • To computers using: Wi-Fi"
-    echo "5. Click 'Wi-Fi Options...' and set:"
-    echo "   • Network Name: $HOTSPOT_SSID"
-    echo "   • Channel: Automatic"
-    echo "   • Security: WPA2 Personal"
-    echo "   • Password: $HOTSPOT_PASSWORD"
-    echo "6. Click OK, then check the 'Internet Sharing' checkbox"
-    echo "7. Confirm when prompted"
-    echo ""
-    echo "💡 Alternative: Use terminal commands (experimental):"
-    echo "sudo networksetup -createnetworkservice 'Game Hub' Wi-Fi"
-    echo ""
-    
-    read -p "Press ENTER when Internet Sharing is configured and enabled..."
-    
-    # Try to detect if Internet Sharing is active
-    if pgrep -f "InternetSharing" > /dev/null 2>&1; then
-        echo "✅ macOS Internet Sharing appears to be active"
-        return 0
-    else
-        echo "⚠️  Could not detect active Internet Sharing"
-        echo "   The hotspot may still work if configured manually"
-        return 0
-    fi
-}
-
-# Function to setup Windows hotspot
-setup_windows_hotspot() {
-    echo "🪟 Setting up Windows hotspot..."
-    
-    if command -v netsh.exe &> /dev/null; then
-        echo "🔧 Attempting automatic configuration..."
-        
-        # Configure hosted network
-        netsh.exe wlan set hostednetwork mode=allow ssid="$HOTSPOT_SSID" key="$HOTSPOT_PASSWORD" &
-        show_spinner $! "Configuring hosted network"
-        
-        # Start hosted network
-        echo "🚀 Starting hosted network..."
-        start_result=$(netsh.exe wlan start hostednetwork 2>&1)
-        
-        if [[ $start_result == *"started"* ]]; then
-            echo "✅ Windows hotspot started successfully"
-            return 0
-        else
-            echo "⚠️  Automatic setup may have failed"
-            echo "Result: $start_result"
-        fi
-    fi
-    
-    echo ""
-    echo "📋 Manual Windows Mobile Hotspot setup:"
-    echo "======================================="
-    echo ""
-    echo "Method 1 - Settings App (Recommended):"
-    echo "1. Open Settings (Windows + I)"
-    echo "2. Go to Network & Internet"
-    echo "3. Select 'Mobile hotspot' from the left menu"
-    echo "4. Configure:"
-    echo "   • Network name: $HOTSPOT_SSID"
-    echo "   • Network password: $HOTSPOT_PASSWORD"
-    echo "   • Share over: Wi-Fi"
-    echo "5. Turn on 'Share my Internet connection with other devices'"
-    echo ""
-    echo "Method 2 - Command Line:"
-    echo "1. Open Command Prompt as Administrator"
-    echo "2. Run: netsh wlan set hostednetwork mode=allow ssid=\"$HOTSPOT_SSID\" key=\"$HOTSPOT_PASSWORD\""
-    echo "3. Run: netsh wlan start hostednetwork"
-    echo ""
-    
-    read -p "Press ENTER when Mobile Hotspot is configured and enabled..."
-    
-    echo "✅ Windows hotspot configuration completed"
-    return 0
-}
-
-# Function to test hotspot connectivity
-test_hotspot() {
-    echo "🧪 Testing hotspot connectivity..."
-    
-    # Check if we can ping our own interface
-    if ping -c 1 $HOTSPOT_IP > /dev/null 2>&1; then
-        echo "✅ Hotspot IP ($HOTSPOT_IP) is reachable"
-    else
-        echo "⚠️  Could not reach hotspot IP ($HOTSPOT_IP)"
-    fi
-    
-    # Check for listening processes on common ports
-    if command -v netstat &> /dev/null; then
-        echo "🔍 Checking for services..."
-        if netstat -an | grep ":80\|:8000\|:53" > /dev/null; then
-            echo "✅ Network services are running"
-        else
-            echo "💡 No web/DNS services detected (this is normal for hotspot-only setup)"
-        fi
-    fi
-}
 
 # Function to show hotspot status
 show_hotspot_status() {
@@ -484,40 +290,20 @@ show_hotspot_status() {
     esac
     
     echo ""
-    echo "📋 Next Steps:"
-    echo "   1. Verify devices can see '$HOTSPOT_SSID' in WiFi networks"
-    echo "   2. Test connection with password '$HOTSPOT_PASSWORD'"
-    echo "   3. Run the main Game Hub with: ./start_game_hub.sh"
+    echo "📋 Configuration Notes:"
+    echo "   • SSID: '$HOTSPOT_SSID' will be used for QR codes"
+    echo "   • Password: '$HOTSPOT_PASSWORD' will be used for QR codes"
+    echo "   • Use your existing hotspot setup script to configure the actual hotspot"
+    echo "   • Run the main Game Hub with: ./start_game_hub.sh"
     echo ""
-}
-
-# Function to stop hotspot
-stop_hotspot() {
-    echo "🛑 Stopping hotspot services..."
-    
-    case $OS_TYPE in
-        "raspberry_pi"|"linux")
-            sudo pkill hostapd 2>/dev/null && echo "   ✅ Stopped hostapd"
-            sudo pkill dnsmasq 2>/dev/null && echo "   ✅ Stopped dnsmasq"
-            sudo ifconfig $WIFI_INTERFACE down 2>/dev/null && echo "   ✅ Interface down"
-            ;;
-        "macos")
-            echo "   📋 Manually disable Internet Sharing in System Preferences"
-            ;;
-        "windows")
-            netsh.exe wlan stop hostednetwork 2>/dev/null && echo "   ✅ Stopped hosted network"
-            ;;
-    esac
-    
-    echo "✅ Hotspot stop procedure completed"
 }
 
 # Main execution
 echo ""
 
 # Parse command line arguments
-case "${1:-setup}" in
-    "setup"|"start")
+case "${1:-check}" in
+    "check"|"detect"|"")
         detect_os
         
         if ! detect_hotspot_settings; then
@@ -525,37 +311,14 @@ case "${1:-setup}" in
         fi
         
         echo ""
-        echo "📡 Hotspot Configuration:"
+        echo "📡 Detected Hotspot Configuration:"
         echo "   SSID: $HOTSPOT_SSID"
         echo "   Password: $HOTSPOT_PASSWORD"
         echo "   Source: $HOTSPOT_SOURCE"
         echo ""
         
-        install_hotspot_dependencies
-        
-        case $OS_TYPE in
-            "raspberry_pi"|"linux")
-                setup_linux_hotspot
-                ;;
-            "macos")
-                setup_macos_hotspot
-                ;;
-            "windows")
-                setup_windows_hotspot
-                ;;
-            *)
-                echo "❌ Hotspot setup not supported for $OS_TYPE"
-                exit 1
-                ;;
-        esac
-        
-        test_hotspot
+        check_hotspot_configured
         show_hotspot_status
-        ;;
-        
-    "stop")
-        detect_os
-        stop_hotspot
         ;;
         
     "status")
@@ -568,16 +331,17 @@ case "${1:-setup}" in
         echo "Usage: $0 [command]"
         echo ""
         echo "Commands:"
-        echo "   setup, start  - Configure and start hotspot (default)"
-        echo "   stop          - Stop hotspot services"
+        echo "   check, detect - Detect and display hotspot configuration (default)"
         echo "   status        - Show current hotspot status"
         echo "   help          - Show this help message"
         echo ""
         echo "Examples:"
-        echo "   $0              # Setup and start hotspot"
-        echo "   $0 setup        # Same as above"
-        echo "   $0 stop         # Stop hotspot"
+        echo "   $0              # Detect hotspot configuration"
+        echo "   $0 check        # Same as above"
         echo "   $0 status       # Check status"
+        echo ""
+        echo "Note: This script only DETECTS existing configurations."
+        echo "Use your separate hotspot setup script to actually configure the hotspot."
         ;;
         
     *)

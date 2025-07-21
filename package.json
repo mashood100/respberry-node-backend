@@ -8,8 +8,7 @@
     "dev": "nodemon server.js",
     "init-db": "node scripts/init-db.js",
     "setup": "./start_game_hub.sh",
-    "hotspot": "./start_hotspot.sh",
-    "hotspot-stop": "./start_hotspot.sh stop",
+    "hotspot-check": "./start_hotspot.sh",
     "hotspot-status": "./start_hotspot.sh status"
   },
   "keywords": ["raspberry-pi", "game-hub", "websocket", "express", "real-time"],
@@ -18,7 +17,6 @@
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
-    "better-sqlite3": "^9.1.1",
     "multer": "^1.4.5-lts.1",
     "qrcode": "^1.5.3",
     "uuid": "^9.0.1",
