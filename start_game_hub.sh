@@ -591,23 +591,41 @@ install_system_dependencies
 # Install Node.js dependencies
 install_nodejs_dependencies
 
-# Check hotspot configuration (don't set it up)
+# Check hotspot configuration
 echo "📡 Checking hotspot configuration..."
-echo "💡 Use your existing hotspot setup script to configure the actual hotspot"
+echo "💡 Use './start_hotspot.sh' to set up the hotspot if needed"
 HOTSPOT_SUCCESS=false
+HOTSPOT_SSID="GameHub-Direct"
+HOTSPOT_PASSWORD="gamehub123"
+HOTSPOT_SOURCE="default configuration"
+HOTSPOT_IP="192.168.4.1"
+
 case $OS_TYPE in
     "raspberry_pi"|"linux")
         if pgrep hostapd > /dev/null && pgrep dnsmasq > /dev/null; then
             echo "✅ Hotspot services are running"
             HOTSPOT_SUCCESS=true
+            # Try to get actual config from hostapd.conf
+            if [ -f "/etc/hostapd/hostapd.conf" ]; then
+                existing_ssid=$(grep "^ssid=" /etc/hostapd/hostapd.conf 2>/dev/null | cut -d'=' -f2)
+                existing_password=$(grep "^wpa_passphrase=" /etc/hostapd/hostapd.conf 2>/dev/null | cut -d'=' -f2)
+                if [ -n "$existing_ssid" ]; then
+                    HOTSPOT_SSID="$existing_ssid"
+                    HOTSPOT_SOURCE="hostapd configuration"
+                fi
+                if [ -n "$existing_password" ]; then
+                    HOTSPOT_PASSWORD="$existing_password"
+                fi
+            fi
         else
-            echo "⚠️  Hotspot services not running - use your setup script first"
+            echo "⚠️  Hotspot services not running - run './start_hotspot.sh' first"
         fi
         ;;
     "macos")
         if pgrep -f "InternetSharing" > /dev/null 2>&1; then
             echo "✅ macOS Internet Sharing is active"
             HOTSPOT_SUCCESS=true
+            HOTSPOT_SOURCE="macOS Internet Sharing"
         else
             echo "⚠️  macOS Internet Sharing not active - configure manually"
         fi
@@ -615,6 +633,7 @@ case $OS_TYPE in
     "windows")
         echo "💡 Check Windows Mobile Hotspot manually in Settings"
         HOTSPOT_SUCCESS=true  # Assume it's configured
+        HOTSPOT_SOURCE="Windows Mobile Hotspot"
         ;;
 esac
 
@@ -695,11 +714,11 @@ if [ "$HOTSPOT_SUCCESS" = true ]; then
     echo "   3. Scan QR code OR go to: http://$DETECTED_IP:$SERVER_PORT/mobile/"
     echo "   📝 Note: Using $HOTSPOT_SOURCE for QR code generation"
 else
-    echo "📋 SETUP REQUIRED:"
-    echo "   1. Use your existing hotspot setup script to configure hotspot"
-    echo "   2. Set SSID to: '$HOTSPOT_SSID' and password to: '$HOTSPOT_PASSWORD'"
-    echo "   3. Or ensure devices are on same network as this computer"
-    echo "   4. Restart this script after hotspot is configured"
+    echo "📋 HOTSPOT SETUP REQUIRED:"
+    echo "   1. First run: './start_hotspot.sh' to configure the hotspot"
+    echo "   2. Or use: 'npm run hotspot-setup' to set up the hotspot"
+    echo "   3. Then restart this script: './start_game_hub.sh'"
+    echo "   4. Alternative: Ensure devices are on same network as this computer"
 fi
 
 echo ""

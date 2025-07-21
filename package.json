@@ -8,8 +8,10 @@
     "dev": "nodemon server.js",
     "init-db": "node scripts/init-db.js",
     "setup": "./start_game_hub.sh",
-    "hotspot-check": "./start_hotspot.sh",
-    "hotspot-status": "./start_hotspot.sh status"
+    "hotspot-setup": "./start_hotspot.sh",
+    "hotspot-stop": "./start_hotspot.sh stop",
+    "hotspot-status": "./start_hotspot.sh status",
+    "hotspot-restart": "./start_hotspot.sh restart"
   },
   "keywords": ["raspberry-pi", "game-hub", "websocket", "express", "real-time"],
   "author": "",
