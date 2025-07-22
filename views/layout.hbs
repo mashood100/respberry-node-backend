@@ -125,12 +125,25 @@
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
         
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
         .btn-primary {
             background: linear-gradient(45deg, #2196F3, #1976D2);
         }
         
         .btn-danger {
             background: linear-gradient(45deg, #f44336, #d32f2f);
+        }
+        
+        .content-card .btn {
+            min-width: 120px;
+            font-size: 14px;
+            padding: 10px 20px;
         }
         
         .qr-code {

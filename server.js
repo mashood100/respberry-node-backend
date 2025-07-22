@@ -101,7 +101,7 @@ function getDeviceStats() {
 const sampleContent1 = createContent({
     title: 'Welcome to Game Hub!',
     contentType: 'text',
-    textContent: '🎮 Welcome to the Node.js Game Hub!<br><br>Connect your mobile devices and enjoy synchronized content.<br><br>Visit the admin panel to create your own content.',
+    textContent: '🎮 Welcome to the Node.js Game Hub! Connect your mobile devices and enjoy synchronized content.Visit the admin panel to create your own content.',
     backgroundColor: '#4CAF50',
     textColor: '#ffffff',
     fontSize: 28
@@ -112,7 +112,7 @@ activateContent(sampleContent1.id);
 createContent({
     title: 'Instructions',
     contentType: 'text',
-    textContent: '📱 How to Connect:<br><br>1. Scan the WiFi QR code<br>2. Scan the URL QR code<br>3. Enjoy synchronized content!',
+    textContent: '📱 How to Connect:1. Scan the WiFi QR code 2. Scan the URL QR code 3. Enjoy synchronized content!',
     backgroundColor: '#2196F3',
     textColor: '#ffffff',
     fontSize: 24
@@ -221,6 +221,8 @@ app.get('/mobile/', (req, res) => {
         const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
         const userAgent = req.headers['user-agent'] || '';
         
+        console.log('📱 Mobile client connecting from IP:', ip);
+        
         // Track this device
         const device = trackDevice(sessionId, ip, userAgent);
         
@@ -235,6 +237,25 @@ app.get('/mobile/', (req, res) => {
         });
     } catch (error) {
         console.error('Error in mobile route:', error);
+        res.status(500).send('Server Error');
+    }
+});
+
+// WebSocket Debug Route
+app.get('/debug/', (req, res) => {
+    try {
+        // Get client and server IP information
+        const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
+        const serverIP = req.get('host') || req.hostname;
+        
+        console.log('🔧 Debug page accessed from:', clientIP);
+        
+        res.render('debug_websocket', {
+            clientIP: clientIP,
+            serverIP: serverIP
+        });
+    } catch (error) {
+        console.error('Error in debug route:', error);
         res.status(500).send('Server Error');
     }
 });
@@ -317,7 +338,7 @@ app.post('/api/content/update/', (req, res) => {
         }
         
         // Notify all connected clients via WebSocket
-        io.emit('content_update', {
+        const updateData = {
             id: content.id,
             title: content.title,
             content_type: content.contentType,
@@ -326,11 +347,17 @@ app.post('/api/content/update/', (req, res) => {
             background_color: content.backgroundColor,
             text_color: content.textColor,
             font_size: content.fontSize
-        });
+        };
+        
+        console.log('📢 Broadcasting content update to all clients:', updateData);
+        console.log('🔗 Connected clients count:', io.engine.clientsCount);
+        
+        io.emit('content_update', updateData);
         
         res.json({
             success: true,
-            message: 'Content updated'
+            message: 'Content updated and broadcast sent',
+            connectedClients: io.engine.clientsCount
         });
     } catch (error) {
         console.error('Error updating content:', error);
@@ -399,14 +426,36 @@ app.get('/api/stats/', async (req, res) => {
     }
 });
 
-// WebSocket handling
+// Stats API endpoint
+app.get('/api/stats/', (req, res) => {
+    try {
+        const stats = getDeviceStats();
+        const connectedClients = io.engine.clientsCount || 0;
+        
+        res.json({
+            success: true,
+            active_devices: stats.activeDevices,
+            total_devices: stats.totalDevices,
+            connected_websockets: connectedClients,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error getting stats:', error);
+        res.json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// WebSocket handling with enhanced debugging
 io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+    console.log('🔗 Client connected:', socket.id, '| Total clients:', io.engine.clientsCount);
     
     // Send current active content to newly connected client
     const activeContent = getActiveContent();
     if (activeContent) {
-        socket.emit('content_update', {
+        const contentData = {
             id: activeContent.id,
             title: activeContent.title,
             content_type: activeContent.contentType,
@@ -415,26 +464,36 @@ io.on('connection', (socket) => {
             background_color: activeContent.backgroundColor,
             text_color: activeContent.textColor,
             font_size: activeContent.fontSize
-        });
+        };
+        
+        console.log('📤 Sending initial content to new client:', socket.id, contentData.title);
+        socket.emit('content_update', contentData);
+    } else {
+        console.log('📭 No active content to send to new client:', socket.id);
     }
     
     // Handle device heartbeat
     socket.on('device_heartbeat', (data) => {
+        console.log('💓 Heartbeat from:', socket.id, data);
+        
         if (data.session_id) {
             // Update device activity in memory
             const device = gameData.devices.find(d => d.sessionId === data.session_id);
             if (device) {
                 device.lastSeen = new Date().toISOString();
                 device.isActive = true;
+                console.log('💓 Updated device activity:', device.sessionId);
             }
         }
     });
     
     // Handle get active content request
     socket.on('get_active_content', () => {
+        console.log('📥 Client requesting active content:', socket.id);
+        
         const activeContent = getActiveContent();
         if (activeContent) {
-            socket.emit('content_update', {
+            const contentData = {
                 id: activeContent.id,
                 title: activeContent.title,
                 content_type: activeContent.contentType,
@@ -443,12 +502,36 @@ io.on('connection', (socket) => {
                 background_color: activeContent.backgroundColor,
                 text_color: activeContent.textColor,
                 font_size: activeContent.fontSize
-            });
+            };
+            
+            console.log('📤 Sending requested content to:', socket.id, contentData.title);
+            socket.emit('content_update', contentData);
+        } else {
+            console.log('📭 No active content available for:', socket.id);
         }
     });
     
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
+    // Handle admin test broadcasts
+    socket.on('admin_test', (data) => {
+        console.log('🧪 Admin test broadcast received:', data);
+        
+        // Broadcast test message to all clients
+        io.emit('admin_test_response', {
+            message: 'Test broadcast successful!',
+            original: data,
+            timestamp: new Date().toISOString(),
+            connectedClients: io.engine.clientsCount
+        });
+        
+        console.log('🧪 Test broadcast sent to all clients');
+    });
+    
+    socket.on('disconnect', (reason) => {
+        console.log('❌ Client disconnected:', socket.id, '| Reason:', reason, '| Remaining clients:', io.engine.clientsCount);
+    });
+    
+    socket.on('connect_error', (error) => {
+        console.error('❌ Socket connection error:', error);
     });
 });
 

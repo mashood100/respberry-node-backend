@@ -132,6 +132,12 @@
     updateConnectionIndicator(true);
   });
 
+  // Listen for admin test broadcasts
+  socket.on('admin_test_response', function(data) {
+    console.log('🧪 Pi Display received test broadcast:', data);
+    updateConnectionIndicator(true);
+  });
+
   socket.on('disconnect', function(reason) {
     console.log('❌ Pi Display disconnected from server, reason:', reason);
     updateConnectionIndicator(false);

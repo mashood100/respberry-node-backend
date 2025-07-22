@@ -75,6 +75,25 @@
     .content-card.active {
         border-color: #4CAF50;
         background: linear-gradient(45deg, rgba(76, 175, 80, 0.1), rgba(76, 175, 80, 0.05));
+        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.3);
+    }
+    
+    .content-card.activating {
+        border-color: #ff9800;
+        background: linear-gradient(45deg, rgba(255, 152, 0, 0.1), rgba(255, 152, 0, 0.05));
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    .content-card.error {
+        border-color: #f44336;
+        background: linear-gradient(45deg, rgba(244, 67, 54, 0.1), rgba(244, 67, 54, 0.05));
+        box-shadow: 0 8px 25px rgba(244, 67, 54, 0.3);
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
     }
     
     .content-card h3 {
@@ -288,6 +307,168 @@
 </div>
 
 <script>
+    // Initialize Socket.IO connection for admin panel testing
+    const socket = io({
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        rememberUpgrade: true
+    });
+    
+    let connectedClients = 0;
+    
+    // Connection event handlers
+    socket.on('connect', function() {
+        console.log('🔧 Admin panel connected to server, ID:', socket.id);
+        updateConnectionStatus(true);
+    });
+    
+    socket.on('disconnect', function(reason) {
+        console.log('❌ Admin panel disconnected, reason:', reason);
+        updateConnectionStatus(false);
+    });
+    
+    // Enhanced activate content with instant visual feedback
+    async function activateContent(contentId) {
+        try {
+            console.log('🔧 Admin activating content:', contentId);
+            
+            // Immediately update UI to show activation in progress
+            updateCardStatus(contentId, 'activating');
+            showAlert('⚡ Activating content...', 'info');
+            
+            const response = await fetch('/api/content/update/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content_id: contentId
+                })
+            });
+            
+            const data = await response.json();
+            console.log('🔧 Server response:', data);
+            
+            if (data.success) {
+                // Immediate visual feedback
+                updateCardStatus(contentId, 'active');
+                showAlert('✅ Content activated successfully!', 'success');
+                
+                // Update stats immediately
+                updateStats();
+                
+                // NO PAGE RELOAD - real-time updates only!
+                console.log('✅ Content activated successfully without page reload');
+            } else {
+                updateCardStatus(contentId, 'error');
+                showAlert('❌ Error: ' + data.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Error activating content:', error);
+            updateCardStatus(contentId, 'error');
+            showAlert('❌ Error activating content: ' + error.message, 'danger');
+        }
+    }
+    
+    // New function to update card visual status immediately
+    function updateCardStatus(contentId, status) {
+        const card = document.querySelector(`[data-content-id="${contentId}"]`);
+        if (!card) return;
+        
+        // Remove all status classes
+        card.classList.remove('active', 'activating', 'error');
+        
+        // Remove other active cards if this one is being activated
+        if (status === 'activating' || status === 'active') {
+            document.querySelectorAll('.content-card').forEach(c => {
+                if (c !== card) {
+                    c.classList.remove('active', 'activating');
+                }
+            });
+        }
+        
+        // Add new status
+        card.classList.add(status);
+        
+        // Update button text based on status
+        const button = card.querySelector('.btn');
+        if (button) {
+            switch(status) {
+                case 'activating':
+                    button.textContent = '⚡ Activating...';
+                    button.disabled = true;
+                    break;
+                case 'active':
+                    button.textContent = '✅ Active';
+                    button.disabled = false;
+                    // Add a brief highlight effect
+                    card.style.transform = 'scale(1.02)';
+                    card.style.transition = 'all 0.3s ease';
+                    setTimeout(() => {
+                        card.style.transform = 'scale(1)';
+                    }, 300);
+                    break;
+                case 'error':
+                    button.textContent = '❌ Error';
+                    button.disabled = false;
+                    break;
+                default:
+                    button.textContent = '🚀 Activate';
+                    button.disabled = false;
+            }
+        }
+    }
+    
+    // Enhanced content update listener for instant UI updates
+    socket.on('content_update', function(data) {
+        console.log('📢 Admin panel received broadcast confirmation:', data);
+        
+        // Update the specific card that was activated
+        if (data.id) {
+            updateCardStatus(data.id, 'active');
+        }
+        
+        // Show success with immediate feedback
+        showAlert(`🎯 Content "${data.title}" is now live on all devices!`, 'success');
+        
+        // Update connection count if available
+        if (data.connectedClients) {
+            updateConnectionCount(data.connectedClients);
+        }
+    });
+    
+    function updateConnectionStatus(connected) {
+        let indicator = document.getElementById('admin-connection-indicator');
+        
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'admin-connection-indicator';
+            indicator.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 10px 15px;
+                border-radius: 25px;
+                font-size: 14px;
+                font-weight: bold;
+                z-index: 1000;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            `;
+            document.body.appendChild(indicator);
+        }
+        
+        if (connected) {
+            indicator.style.backgroundColor = '#4CAF50';
+            indicator.style.color = 'white';
+            indicator.innerHTML = '🟢 WebSocket Connected';
+        } else {
+            indicator.style.backgroundColor = '#f44336';
+            indicator.style.color = 'white';
+            indicator.innerHTML = '🔴 WebSocket Disconnected';
+        }
+    }
+
     // Handle form submission
     document.getElementById('content-form').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -303,11 +484,12 @@
             const data = await response.json();
             
             if (data.success) {
-                showAlert('Content created successfully!', 'success');
+                showAlert('✅ Content created successfully!', 'success');
                 this.reset();
+                // Quick reload for new content - much faster than before
                 setTimeout(() => {
                     location.reload();
-                }, 1500);
+                }, 500);
             } else {
                 showAlert('Error: ' + data.message, 'danger');
             }
@@ -316,31 +498,19 @@
         }
     });
     
-    // Activate content
-    async function activateContent(contentId) {
-        try {
-            const response = await fetch('/api/content/update/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    content_id: contentId
-                })
+    // Test broadcast function
+    function testBroadcast() {
+        console.log('🧪 Testing WebSocket broadcast...');
+        
+        if (socket.connected) {
+            // Emit a test event
+            socket.emit('admin_test', {
+                message: 'Test broadcast from admin panel',
+                timestamp: new Date().toISOString()
             });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                showAlert('Content activated successfully!', 'success');
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
-            } else {
-                showAlert('Error: ' + data.message, 'danger');
-            }
-        } catch (error) {
-            showAlert('Error activating content: ' + error.message, 'danger');
+            showAlert('Test broadcast sent via WebSocket!', 'success');
+        } else {
+            showAlert('WebSocket not connected - cannot test broadcast', 'danger');
         }
     }
     
@@ -351,18 +521,24 @@
         }
     }
     
-    // Show alert messages
+    // Enhanced alert messages with better styling
     function showAlert(message, type) {
         const alertContainer = document.getElementById('alert-container');
         const alert = document.createElement('div');
         alert.className = `alert alert-${type}`;
-        alert.textContent = message;
+        alert.innerHTML = `
+            <strong>${type === 'success' ? '✅' : '❌'}</strong> ${message}
+            <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+        `;
         
         alertContainer.appendChild(alert);
         
+        // Auto-remove after 8 seconds (longer for important messages)
         setTimeout(() => {
-            alert.remove();
-        }, 5000);
+            if (alert.parentElement) {
+                alert.remove();
+            }
+        }, 8000);
     }
     
     // Update stats in real-time
@@ -371,13 +547,43 @@
             const response = await fetch('/api/stats/');
             const data = await response.json();
             
-            document.getElementById('connected-devices').textContent = data.active_devices || 0;
+            const connectedDevicesElement = document.getElementById('connected-devices');
+            if (connectedDevicesElement) {
+                connectedDevicesElement.textContent = data.active_devices || 0;
+                connectedClients = data.active_devices || 0;
+            }
         } catch (error) {
             console.error('Error updating stats:', error);
         }
     }
     
-    // Update stats every 30 seconds
-    setInterval(updateStats, 30000);
+    // Update connection count display
+    function updateConnectionCount(count) {
+        const connectedDevicesElement = document.getElementById('connected-devices');
+        if (connectedDevicesElement) {
+            connectedDevicesElement.textContent = count || 0;
+            connectedClients = count || 0;
+        }
+    }
+    
+    // Update stats every 10 seconds for better real-time feedback
+    setInterval(updateStats, 10000);
     updateStats(); // Initial load
-</script> 
+    
+    // Add debugging info
+    setInterval(() => {
+        console.log('🔧 Admin Panel Status:', {
+            socketConnected: socket.connected,
+            socketId: socket.id,
+            connectedClients: connectedClients,
+            timestamp: new Date().toISOString()
+        });
+    }, 30000);
+</script>
+
+<!-- Add test button for debugging -->
+<div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <button onclick="testBroadcast()" class="btn btn-primary btn-small">
+        🧪 Test Broadcast
+    </button>
+</div> 

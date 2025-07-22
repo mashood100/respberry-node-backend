@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Debug - Game Hub</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .debug-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-indicator {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status-connected {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .status-disconnected {
+            background: #f44336;
+            color: white;
+        }
+        
+        .status-connecting {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .log-container {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #45a049;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+        }
+        
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .info-card {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .test-content {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🔧 WebSocket Debug Console</h1>
+        <p>Real-time connection testing for Game Hub</p>
+        
+        <div class="info-grid">
+            <div class="info-card">
+                <h3 id="client-ip">{{clientIP}}</h3>
+                <small>Client IP</small>
+            </div>
+            <div class="info-card">
+                <h3 id="server-ip">{{serverIP}}</h3>
+                <small>Server IP</small>
+            </div>
+            <div class="info-card">
+                <h3 id="socket-id">Not Connected</h3>
+                <small>Socket ID</small>
+            </div>
+            <div class="info-card">
+                <h3 id="connection-count">0</h3>
+                <small>Connected Clients</small>
+            </div>
+        </div>
+        
+        <div id="connection-status" class="status-indicator status-disconnected">
+            🔴 WebSocket Disconnected - Attempting to connect...
+        </div>
+        
+        <div>
+            <button class="btn" onclick="testConnection()">🧪 Test Connection</button>
+            <button class="btn" onclick="requestContent()">📥 Request Content</button>
+            <button class="btn" onclick="sendHeartbeat()">💓 Send Heartbeat</button>
+            <button class="btn btn-danger" onclick="forceReconnect()">🔄 Force Reconnect</button>
+            <button class="btn btn-danger" onclick="clearLogs()">🗑️ Clear Logs</button>
+        </div>
+        
+        <div class="test-content" id="test-content">
+            Waiting for real-time content updates...
+        </div>
+        
+        <h3>📋 Connection Logs:</h3>
+        <div class="log-container" id="log-container"></div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="/mobile/" class="btn">📱 Go to Mobile View</a>
+        <a href="/admin-panel/" class="btn">⚙️ Go to Admin Panel</a>
+        <a href="/" class="btn">🏠 Go to Pi Display</a>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket;
+        let connectionAttempts = 0;
+        let logContainer = document.getElementById('log-container');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            const color = {
+                'info': '#00ff00',
+                'warn': '#ffff00', 
+                'error': '#ff0000',
+                'success': '#00ffff'
+            }[type] || '#00ff00';
+            
+            logEntry.style.color = color;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            console.log(`[WebSocket Debug] ${message}`);
+        }
+        
+        function updateConnectionStatus(connected, socketId = null) {
+            const statusElement = document.getElementById('connection-status');
+            const socketIdElement = document.getElementById('socket-id');
+            
+            if (connected) {
+                statusElement.className = 'status-indicator status-connected';
+                statusElement.innerHTML = '🟢 WebSocket Connected - Real-time updates active';
+                socketIdElement.textContent = socketId || 'Connected';
+                log('✅ Connection established successfully', 'success');
+            } else {
+                statusElement.className = 'status-indicator status-disconnected';
+                statusElement.innerHTML = '🔴 WebSocket Disconnected - Real-time updates inactive';
+                socketIdElement.textContent = 'Not Connected';
+                log('❌ Connection lost or failed', 'error');
+            }
+        }
+        
+        function updateConnectionCount(count) {
+            document.getElementById('connection-count').textContent = count || 0;
+        }
+        
+        function initializeSocket() {
+            connectionAttempts++;
+            log(`🔄 Connection attempt #${connectionAttempts}`, 'info');
+            
+            // Try multiple transport methods
+            socket = io({
+                transports: ['websocket', 'polling'],
+                upgrade: true,
+                rememberUpgrade: true,
+                timeout: 10000,
+                forceNew: true
+            });
+            
+            socket.on('connect', function() {
+                connectionAttempts = 0;
+                updateConnectionStatus(true, socket.id);
+                log(`🎉 Connected with Socket ID: ${socket.id}`, 'success');
+                
+                // Request initial content and stats
+                socket.emit('get_active_content');
+                requestStats();
+            });
+            
+            socket.on('connect_error', function(error) {
+                updateConnectionStatus(false);
+                log(`❌ Connection error: ${error.message || error}`, 'error');
+                
+                // Retry connection after delay
+                setTimeout(() => {
+                    if (connectionAttempts < 5) {
+                        log('🔄 Retrying connection...', 'warn');
+                        initializeSocket();
+                    } else {
+                        log('🚫 Max connection attempts reached. Please check network.', 'error');
+                    }
+                }, 2000 * connectionAttempts);
+            });
+            
+            socket.on('disconnect', function(reason) {
+                updateConnectionStatus(false);
+                log(`🔌 Disconnected: ${reason}`, 'warn');
+                
+                if (reason === 'io server disconnect') {
+                    log('🔄 Server disconnected, attempting reconnect...', 'warn');
+                    socket.connect();
+                }
+            });
+            
+            socket.on('content_update', function(data) {
+                log(`📱 Content update received: ${data.title || 'Unknown'}`, 'success');
+                updateTestContent(data);
+            });
+            
+            socket.on('admin_test_response', function(data) {
+                log(`🧪 Test broadcast received: ${data.message}`, 'success');
+                updateConnectionCount(data.connectedClients);
+                
+                // Visual feedback
+                const testContent = document.getElementById('test-content');
+                testContent.style.background = '#4CAF50';
+                testContent.style.color = 'white';
+                testContent.innerHTML = `🧪 Test Broadcast Successful!<br><small>Connected clients: ${data.connectedClients}</small>`;
+                
+                setTimeout(() => {
+                    testContent.style.background = 'rgba(255, 255, 255, 0.9)';
+                    testContent.style.color = '#333';
+                }, 3000);
+            });
+            
+            socket.on('stats_update', function(data) {
+                updateConnectionCount(data.connected_websockets);
+                log(`📊 Stats update: ${data.connected_websockets} clients connected`, 'info');
+            });
+        }
+        
+        function updateTestContent(content) {
+            const testContent = document.getElementById('test-content');
+            
+            if (!content.text_content && !content.image_url) {
+                return;
+            }
+            
+            testContent.style.background = content.background_color || '#ffffff';
+            testContent.style.color = content.text_color || '#000000';
+            testContent.style.fontSize = (content.font_size || 18) + 'px';
+            
+            let html = '';
+            if (content.text_content) {
+                html += content.text_content;
+            }
+            if (content.image_url) {
+                html += `<br><img src="${content.image_url}" style="max-width: 200px; max-height: 150px; border-radius: 10px;">`;
+            }
+            
+            testContent.innerHTML = html;
+            
+            // Add animation
+            testContent.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                testContent.style.transform = 'scale(1)';
+            }, 100);
+        }
+        
+        function testConnection() {
+            if (socket && socket.connected) {
+                log('🧪 Sending test message to server...', 'info');
+                socket.emit('admin_test', {
+                    message: 'Debug page test',
+                    timestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent
+                });
+            } else {
+                log('❌ Cannot test - not connected to server', 'error');
+            }
+        }
+        
+        function requestContent() {
+            if (socket && socket.connected) {
+                log('📥 Requesting active content...', 'info');
+                socket.emit('get_active_content');
+            } else {
+                log('❌ Cannot request content - not connected', 'error');
+            }
+        }
+        
+        function sendHeartbeat() {
+            if (socket && socket.connected) {
+                log('💓 Sending heartbeat...', 'info');
+                socket.emit('device_heartbeat', {
+                    session_id: 'debug-session',
+                    timestamp: new Date().toISOString(),
+                    device_type: 'debug'
+                });
+            } else {
+                log('❌ Cannot send heartbeat - not connected', 'error');
+            }
+        }
+        
+        function forceReconnect() {
+            log('🔄 Forcing reconnection...', 'warn');
+            if (socket) {
+                socket.disconnect();
+            }
+            connectionAttempts = 0;
+            setTimeout(initializeSocket, 1000);
+        }
+        
+        function clearLogs() {
+            logContainer.innerHTML = '';
+            log('🗑️ Logs cleared', 'info');
+        }
+        
+        async function requestStats() {
+            try {
+                const response = await fetch('/api/stats/');
+                const data = await response.json();
+                if (data.success) {
+                    updateConnectionCount(data.connected_websockets);
+                    log(`📊 Server stats: ${data.connected_websockets} clients, ${data.active_devices} devices`, 'info');
+                }
+            } catch (error) {
+                log(`❌ Failed to get stats: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize connection when page loads
+        window.addEventListener('load', () => {
+            log('🚀 Debug page loaded, initializing WebSocket...', 'info');
+            initializeSocket();
+        });
+        
+        // Update stats every 10 seconds
+        setInterval(requestStats, 10000);
+        
+        // Page visibility handling
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && socket && !socket.connected) {
+                log('📱 Page became visible, checking connection...', 'info');
+                forceReconnect();
+            }
+        });
+    </script>
+</body>
+</html> 
