@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia Question - Game Hub</title>
+    <link rel="stylesheet" href="/static/css/trivia.css">
+</head>
+<body>
+    <!-- Full-Screen Question View -->
+    <div class="fullscreen-view" id="fullscreen-question-view">
+        <div class="fullscreen-question" id="fullscreen-question-text">
+            What is the capital city of France?
+        </div>
+        <div class="fullscreen-countdown" id="fullscreen-countdown">
+            Get ready... Game starting in <span id="question-countdown">10</span> seconds
+        </div>
+    </div>
+
+    <!-- Full-Screen Correct Answer View -->
+    <div class="fullscreen-view" id="fullscreen-answer-view">
+        <div class="fullscreen-answer-label">🎉 Correct Answer:</div>
+        <div class="fullscreen-answer" id="fullscreen-answer-text">
+            Paris
+        </div>
+        <div class="fullscreen-countdown">
+            Well done! 🌟
+        </div>
+    </div>
+
+    <div class="trivia-container" id="trivia-container">
+        <div class="question-header">
+            <h1 class="question-title">🧠 Trivia Challenge</h1>
+            <p class="question-text" id="question-text">
+                What is the capital city of France?
+            </p>
+            
+            <div class="timer-container">
+                <div class="timer-circle" id="timer-circle">
+                    <div class="timer-text" id="timer-text">40</div>
+                </div>
+                <p class="timer-status" id="timer-status">Get ready to start...</p>
+            </div>
+        </div>
+
+        <div class="progress-section">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="answers-container" id="answers-container" role="group" aria-labelledby="question-text">
+            <div class="answer-option" id="option-a" role="button" tabindex="0" aria-label="Option A">
+                <div class="answer-content">
+                    <span class="answer-letter">A</span>
+                    <span class="answer-text">London</span>
+                </div>
+                <div class="elimination-overlay" id="overlay-a">
+                    <span class="elimination-text">❌ Eliminated</span>
+                </div>
+            </div>
+            <div class="answer-option" id="option-b" role="button" tabindex="0" aria-label="Option B">
+                <div class="answer-content">
+                    <span class="answer-letter">B</span>
+                    <span class="answer-text">Berlin</span>
+                </div>
+                <div class="elimination-overlay" id="overlay-b">
+                    <span class="elimination-text">❌ Eliminated</span>
+                </div>
+            </div>
+            <div class="answer-option" id="option-c" role="button" tabindex="0" aria-label="Option C">
+                <div class="answer-content">
+                    <span class="answer-letter">C</span>
+                    <span class="answer-text">Paris</span>
+                </div>
+                <div class="elimination-overlay" id="overlay-c">
+                    <span class="elimination-text">❌ Eliminated</span>
+                </div>
+            </div>
+            <div class="answer-option" id="option-d" role="button" tabindex="0" aria-label="Option D">
+                <div class="answer-content">
+                    <span class="answer-letter">D</span>
+                    <span class="answer-text">Madrid</span>
+                </div>
+                <div class="elimination-overlay" id="overlay-d">
+                    <span class="elimination-text">❌ Eliminated</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-status" id="game-status" aria-live="polite">
+            <p class="status-text">Ready to start the 40-second challenge!</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startTrivia()" id="start-btn">
+                🚀 Start 40s Challenge
+            </button>
+            <button class="btn btn-secondary" onclick="resetTrivia()" id="reset-btn">
+                🔄 Reset Question
+            </button>
+            <button class="btn btn-secondary" onclick="nextQuestion()" id="next-btn">
+                ⏭️ Next Question
+            </button>
+        </div>
+
+
+    </div>
+
+    <div class="accessibility-info" aria-live="polite" id="accessibility-announcer"></div>
+
+    <script src="/static/js/trivia.js"></script>
+</body>
+</html> 

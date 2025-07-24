@@ -276,6 +276,17 @@ app.get('/admin-panel/', (req, res) => {
     }
 });
 
+// Trivia Question Route
+app.get('/trivia/', (req, res) => {
+    try {
+        console.log('🎯 Trivia page accessed');
+        res.render('trivia_question');
+    } catch (error) {
+        console.error('Error in trivia route:', error);
+        res.status(500).send('Server Error');
+    }
+});
+
 // API Routes
 
 // Create new content
