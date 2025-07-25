@@ -553,33 +553,53 @@ app.get('/trivia/', async (req, res) => {
         const currentIp = await NetworkUtils.getLocalIp();
         const userUrl = `http://${currentIp}:8000/user/`;
         
-        const [hotspotName, hotspotPassword, hotspotSource] = await NetworkUtils.getDeviceHotspotSettings();
+        // Use fixed WiFi credentials for the game
+        const hotspotName = "GameHub-Direct";
+        const hotspotPassword = "gamehub123";
         
         let passwordWarning = null;
         let wifiQrCode = null;
         
-        if (!hotspotPassword) {
-            passwordWarning = "⚠️ Could not detect hotspot password. Please check your system settings.";
-        } else {
+        try {
             // Generate WiFi QR code that connects to hotspot and opens user page
             wifiQrCode = await QRCodeGenerator.generateWifiQrCode(hotspotName, hotspotPassword, userUrl);
+            console.log('✅ WiFi QR code generated successfully');
+        } catch (error) {
+            console.error('❌ Error generating WiFi QR code:', error);
+            wifiQrCode = null;
         }
         
         // Generate URL QR code specifically for user page
-        const userUrlQrCode = await QRCodeGenerator.generateQrCode(userUrl);
+        let userUrlQrCode = null;
+        try {
+            console.log('🔄 Generating QR code for URL:', userUrl);
+            userUrlQrCode = await QRCodeGenerator.generateQrCode(userUrl, 8);
+            if (userUrlQrCode) {
+                console.log('✅ User URL QR code generated successfully, length:', userUrlQrCode.length);
+            } else {
+                console.log('⚠️ QR code generated but returned null/empty');
+            }
+        } catch (error) {
+            console.error('❌ Error generating User URL QR code:', error);
+            console.error('❌ Error details:', error.message);
+            userUrlQrCode = null;
+        }
         
         console.log('🔗 Generated QR codes for trivia game:', {
             hotspotName,
             hasPassword: !!hotspotPassword,
-            userUrl
+            userUrl,
+            hasWifiQr: !!wifiQrCode,
+            hasUserQr: !!userUrlQrCode,
+            wifiQrLength: wifiQrCode ? wifiQrCode.length : 0,
+            userQrLength: userUrlQrCode ? userUrlQrCode.length : 0
         });
         
         res.render('trivia_display', {
             currentIp,
             userUrl,
             hotspotName,
-            hotspotPassword: hotspotPassword || "❌ PASSWORD NEEDED",
-            hotspotSource,
+            hotspotPassword,
             passwordWarning,
             wifiQrCode,
             userUrlQrCode

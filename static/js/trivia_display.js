@@ -180,7 +180,7 @@ function updateInstructionsDisplay() {
     
     // Step 1: Always show as active (players should connect to hotspot)
     elements.step1.classList.add('active');
-    elements.step1Status.textContent = 'Connect to GameHub_Trivia network';
+    elements.step1Status.textContent = 'Connect to GameHub-Direct network';
     elements.step1Status.className = 'step-status';
     
     // Step 2: Activate when players are connected

@@ -18,7 +18,8 @@ class QRCodeGenerator {
                 width: size * 20 // Convert size to pixels
             });
             
-            return qrCodeDataUrl;
+            // Return just the base64 data without the data:image/png;base64, prefix
+            return qrCodeDataUrl.split(',')[1];
         } catch (error) {
             console.error('Error generating WiFi QR code:', error);
             throw error;
@@ -39,7 +40,8 @@ class QRCodeGenerator {
                 width: size * 20 // Convert size to pixels
             });
             
-            return qrCodeDataUrl;
+            // Return just the base64 data without the data:image/png;base64, prefix
+            return qrCodeDataUrl.split(',')[1];
         } catch (error) {
             console.error('Error generating QR code:', error);
             throw error;
