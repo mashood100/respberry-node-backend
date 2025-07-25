@@ -235,9 +235,6 @@ function showQuestionDisplayPhase() {
         elements.fullscreenQuestionText.textContent = gameState.currentQuestion.question;
         elements.questionCountdown.textContent = gameState.questionDisplayTimeRemaining;
     }
-    
-    elements.phaseTitle.textContent = 'Question Display';
-    updateQuestionNumber();
 }
 
 // Show answering phase (40 seconds)
@@ -251,7 +248,6 @@ function showAnsweringPhase() {
         updateAnswerOptions(gameState.currentQuestion.options);
     }
     
-    elements.phaseTitle.textContent = 'Answering Phase';
     updateGameStatus();
 }
 
@@ -388,12 +384,7 @@ function updateProgress() {
     elements.progressFill.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
 }
 
-// Update question number
-function updateQuestionNumber() {
-    const current = gameState.currentQuestionIndex + 1;
-    const total = gameState.totalQuestions || 5;
-    elements.questionNumber.textContent = `Question ${current} of ${total}`;
-}
+
 
 // Update game status
 function updateGameStatus() {
