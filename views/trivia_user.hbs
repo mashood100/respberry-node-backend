@@ -12,7 +12,7 @@
             border: none;
             padding: 15px;
             width: 100vw;
-            height: 100vh;
+            min-height: 100vh;
             position: fixed;
             top: 0;
             left: 0;
@@ -23,16 +23,20 @@
             text-align: center;
         }
 
+        /* Compact header for mobile */
         .player-header {
             position: fixed;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(45deg, #4CAF50, #45A049);
-            padding: 10px 20px;
-            border-radius: 12px;
-            border: 3px solid #000;
-            z-index: 100;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: #FFD700;
+            padding: 8px 15px;
+            font-size: 1em;
+            font-weight: 900;
+            text-align: center;
+            z-index: 1000;
+            border-bottom: 2px solid #FFD700;
         }
 
         .player-name {
@@ -46,56 +50,72 @@
 
         .user-status {
             position: fixed;
-            top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
+            top: 40px;
+            right: 10px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
             font-weight: bold;
-            z-index: 100;
+            z-index: 1000;
+            border: 2px solid #333;
         }
 
         .user-status.connected {
             background: #28a745;
+            color: white;
         }
 
         .user-status.disconnected {
             background: #dc3545;
+            color: white;
         }
 
+        /* Current score display */
+        .your-score {
+            position: fixed;
+            top: 40px;
+            left: 10px;
+            background: rgba(255, 215, 0, 0.95);
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            z-index: 1000;
+            border: 2px solid #000;
+        }
+
+        /* Waiting screen for when game hasn't started */
         .waiting-for-game {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
+            text-align: center;
             padding: 20px;
         }
 
         .waiting-title {
-            font-size: 2em;
-            font-weight: 900;
-            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 2.5em;
             color: #FFF;
-            background: linear-gradient(45deg, #4CAF50, #45A049);
+            background: rgba(0, 0, 0, 0.7);
             padding: 20px 30px;
             border-radius: 15px;
-            border: 4px solid #000;
-            text-shadow: 3px 3px 0px #000, -3px -3px 0px #000, 3px -3px 0px #000, -3px 3px 0px #000;
             margin-bottom: 20px;
-            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            border: 3px solid #FFD700;
         }
 
         .waiting-info {
             font-size: 1.2em;
             color: #FFF;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.6);
             padding: 15px 20px;
-            border-radius: 12px;
-            font-weight: 600;
-            text-align: center;
+            border-radius: 10px;
+            line-height: 1.4;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            border: 2px solid #FFF;
         }
 
         .answer-option.interactive {
@@ -136,20 +156,6 @@
             border: 3px solid #000;
             z-index: 100;
             animation: slideUp 0.5s ease-out;
-        }
-
-        .your-score {
-            position: fixed;
-            bottom: 15px;
-            right: 15px;
-            background: #007bff;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 1.1em;
-            z-index: 100;
-            border: 2px solid #000;
         }
 
         .question-results {
@@ -241,6 +247,20 @@
     </style>
 </head>
 <body>
+    <!-- Background Music -->
+    <audio id="background-music" loop preload="auto">
+        <source src="/static/assets/game-music-player-console-8bit-background-intro-theme-297305.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <!-- Music Control -->
+    <div style="position: fixed; bottom: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 5px;">
+        <button id="music-toggle" onclick="toggleBackgroundMusic()" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+            🔊 Music: ON
+        </button>
+        <input id="volume-control" type="range" min="0" max="100" value="30" onchange="setMusicVolume(this.value)" style="width: 60px; margin-left: 5px;">
+    </div>
+
     <!-- Player Header -->
     <div class="player-header" id="player-header">
         <div class="player-name" id="player-name">Player 1</div>
@@ -288,7 +308,7 @@
                 </div>
             </div>
 
-            <div class="answers-container" id="answers-container">
+            <div class="answers-container" id="answers-container" role="group" aria-labelledby="question-text">
                 <div class="answer-option interactive" id="option-0" onclick="selectAnswer(0)">
                     <div class="answer-content">
                         <span class="answer-letter">A</span>
@@ -327,8 +347,8 @@
                 </div>
             </div>
 
-            <div class="game-status" id="game-status">
-                <p class="status-text">Select your answer!</p>
+            <div class="game-status" id="game-status" aria-live="polite">
+                <p class="status-text">Waiting for game to start...</p>
             </div>
         </div>
 
@@ -340,11 +360,11 @@
 
     <!-- Question Results Screen -->
     <div class="question-results" id="results-screen" style="display: none;">
-        <div class="result-message correct" id="result-message">
+        <div class="result-message" id="result-message">
             🎉 Correct!
         </div>
         <div class="correct-answer-display" id="correct-answer-display">
-            Correct Answer: Paris
+            The correct answer was: Paris
         </div>
     </div>
 
@@ -354,12 +374,12 @@
             🏆 Game Complete!
         </div>
         <div class="correct-answer-display" id="final-score-display">
-            Your Final Score: 0/5
+            Your Final Score: 3/5
         </div>
     </div>
 
     <script>
-        // Pass server data to JavaScript
+        // Make device info available globally for the WebSocket connection
         window.deviceInfo = {
             sessionId: '{{device.sessionId}}',
             id: '{{device.id}}'

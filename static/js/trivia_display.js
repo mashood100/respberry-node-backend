@@ -14,6 +14,63 @@ let gameState = {
     answerEliminationPhase: 'initial' // initial, first-eliminated, second-eliminated, final-reveal, correct-reveal
 };
 
+// Background Music Management
+let backgroundMusic = null;
+let isMusicPlaying = false;
+
+function initializeBackgroundMusic() {
+    backgroundMusic = document.getElementById('background-music');
+    if (backgroundMusic) {
+        backgroundMusic.volume = 0.3; // Set default volume to 30%
+        console.log('🎵 Background music initialized');
+    }
+}
+
+function playBackgroundMusic() {
+    if (backgroundMusic && !isMusicPlaying) {
+        backgroundMusic.play().then(() => {
+            isMusicPlaying = true;
+            console.log('🎵 Background music started');
+            updateMusicToggleButton();
+        }).catch(error => {
+            console.error('❌ Could not play background music:', error);
+        });
+    }
+}
+
+function stopBackgroundMusic() {
+    if (backgroundMusic && isMusicPlaying) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+        isMusicPlaying = false;
+        console.log('🔇 Background music stopped');
+        updateMusicToggleButton();
+    }
+}
+
+function toggleBackgroundMusic() {
+    if (isMusicPlaying) {
+        stopBackgroundMusic();
+    } else {
+        playBackgroundMusic();
+    }
+}
+
+function setMusicVolume(value) {
+    if (backgroundMusic) {
+        backgroundMusic.volume = value / 100;
+        console.log(`🔊 Music volume set to ${value}%`);
+    }
+}
+
+function updateMusicToggleButton() {
+    const toggleButton = document.getElementById('music-toggle');
+    if (toggleButton) {
+        toggleButton.textContent = isMusicPlaying ? '🔊 Music: ON' : '🔇 Music: OFF';
+        toggleButton.style.background = isMusicPlaying ? '#28a745' : '#dc3545';
+    }
+}
+
 // DOM Elements
 const elements = {
     waitingScreen: document.getElementById('waiting-screen'),
@@ -215,6 +272,10 @@ function backToWaiting() {
 // Start the actual game
 function startGameNow() {
     console.log('🚀 Starting game from instructions...');
+    
+    // Start background music when game begins
+    playBackgroundMusic();
+    
     if (socket && socket.connected) {
         socket.emit('start_trivia_game');
     } else {
@@ -534,6 +595,7 @@ function resetGame() {
 // Initialize when page loads
 window.addEventListener('load', () => {
     console.log('🎮 Trivia display screen loaded');
+    initializeBackgroundMusic();
     initializeSocket();
 });
 
@@ -549,4 +611,6 @@ document.addEventListener('visibilitychange', () => {
 window.showInstructions = showInstructions;
 window.backToWaiting = backToWaiting;
 window.startGameNow = startGameNow;
-window.resetGame = resetGame; 
+window.resetGame = resetGame;
+window.toggleBackgroundMusic = toggleBackgroundMusic;
+window.setMusicVolume = setMusicVolume; 

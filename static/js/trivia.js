@@ -11,6 +11,63 @@ const GAME_CONFIG = {
     PAUSE_PHASE_END: 40 // Pause phase ends at 40 seconds
 };
 
+// Background Music Management
+let backgroundMusic = null;
+let isMusicPlaying = false;
+
+function initializeBackgroundMusic() {
+    backgroundMusic = document.getElementById('background-music');
+    if (backgroundMusic) {
+        backgroundMusic.volume = 0.3; // Set default volume to 30%
+        console.log('🎵 Background music initialized');
+    }
+}
+
+function playBackgroundMusic() {
+    if (backgroundMusic && !isMusicPlaying) {
+        backgroundMusic.play().then(() => {
+            isMusicPlaying = true;
+            console.log('🎵 Background music started');
+            updateMusicToggleButton();
+        }).catch(error => {
+            console.error('❌ Could not play background music:', error);
+        });
+    }
+}
+
+function stopBackgroundMusic() {
+    if (backgroundMusic && isMusicPlaying) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+        isMusicPlaying = false;
+        console.log('🔇 Background music stopped');
+        updateMusicToggleButton();
+    }
+}
+
+function toggleBackgroundMusic() {
+    if (isMusicPlaying) {
+        stopBackgroundMusic();
+    } else {
+        playBackgroundMusic();
+    }
+}
+
+function setMusicVolume(value) {
+    if (backgroundMusic) {
+        backgroundMusic.volume = value / 100;
+        console.log(`🔊 Music volume set to ${value}%`);
+    }
+}
+
+function updateMusicToggleButton() {
+    const toggleButton = document.getElementById('music-toggle');
+    if (toggleButton) {
+        toggleButton.textContent = isMusicPlaying ? '🔊 Music: ON' : '🔇 Music: OFF';
+        toggleButton.style.background = isMusicPlaying ? '#28a745' : '#dc3545';
+    }
+}
+
 // Sample trivia questions with enhanced structure
 const triviaQuestions = [
     {
@@ -427,6 +484,9 @@ function startTrivia() {
         return;
     }
     
+    // Start background music when game begins
+    playBackgroundMusic();
+    
     // Reset game state
     gameState.isActive = true;
     gameState.timeRemaining = GAME_CONFIG.TOTAL_TIME;
@@ -475,6 +535,9 @@ function resetTrivia() {
         clearInterval(gameState.questionCountdownInterval);
         gameState.questionCountdownInterval = null;
     }
+    
+    // Stop background music when game is reset
+    stopBackgroundMusic();
     
     // Reset all states
     gameState.isActive = false;
@@ -570,6 +633,9 @@ function handleKeyboardNavigation(event) {
 function initializeTrivia() {
     console.log('Initializing Enhanced Trivia Game...');
     
+    // Initialize background music
+    initializeBackgroundMusic();
+    
     // Load first question
     loadQuestion(triviaQuestions[gameState.currentQuestionIndex]);
     
@@ -605,4 +671,6 @@ document.addEventListener('visibilitychange', () => {
 // Export functions for global access (for onclick handlers)
 window.startTrivia = startTrivia;
 window.resetTrivia = resetTrivia;
-window.nextQuestion = nextQuestion; 
+window.nextQuestion = nextQuestion;
+window.toggleBackgroundMusic = toggleBackgroundMusic;
+window.setMusicVolume = setMusicVolume; 

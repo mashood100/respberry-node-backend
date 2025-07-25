@@ -19,6 +19,63 @@ let gameState = {
     eliminatedAnswers: []
 };
 
+// Background Music Management
+let backgroundMusic = null;
+let isMusicPlaying = false;
+
+function initializeBackgroundMusic() {
+    backgroundMusic = document.getElementById('background-music');
+    if (backgroundMusic) {
+        backgroundMusic.volume = 0.3; // Set default volume to 30%
+        console.log('🎵 Background music initialized');
+    }
+}
+
+function playBackgroundMusic() {
+    if (backgroundMusic && !isMusicPlaying) {
+        backgroundMusic.play().then(() => {
+            isMusicPlaying = true;
+            console.log('🎵 Background music started');
+            updateMusicToggleButton();
+        }).catch(error => {
+            console.error('❌ Could not play background music:', error);
+        });
+    }
+}
+
+function stopBackgroundMusic() {
+    if (backgroundMusic && isMusicPlaying) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+        isMusicPlaying = false;
+        console.log('🔇 Background music stopped');
+        updateMusicToggleButton();
+    }
+}
+
+function toggleBackgroundMusic() {
+    if (isMusicPlaying) {
+        stopBackgroundMusic();
+    } else {
+        playBackgroundMusic();
+    }
+}
+
+function setMusicVolume(value) {
+    if (backgroundMusic) {
+        backgroundMusic.volume = value / 100;
+        console.log(`🔊 Music volume set to ${value}%`);
+    }
+}
+
+function updateMusicToggleButton() {
+    const toggleButton = document.getElementById('music-toggle');
+    if (toggleButton) {
+        toggleButton.textContent = isMusicPlaying ? '🔊 Music: ON' : '🔇 Music: OFF';
+        toggleButton.style.background = isMusicPlaying ? '#28a745' : '#dc3545';
+    }
+}
+
 // DOM Elements
 const elements = {
     // Screens
@@ -141,6 +198,11 @@ function initializeSocket() {
 // Update game state
 function updateGameState(state) {
     gameState = state;
+    
+    // Start background music when game moves to question-display or answering phase
+    if ((state.currentPhase === 'question-display' || state.currentPhase === 'answering') && !isMusicPlaying) {
+        playBackgroundMusic();
+    }
     
     // Update player score from server data
     const myPlayer = state.players.find(p => p.sessionId === playerData.sessionId);
@@ -451,6 +513,7 @@ window.addEventListener('load', () => {
     console.log('📱 Trivia user screen loaded');
     initializePlayerData();
     initializeSocket();
+    initializeBackgroundMusic(); // Initialize music on page load
 });
 
 // Handle page visibility changes
@@ -461,5 +524,7 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// Make selectAnswer function available globally
-window.selectAnswer = selectAnswer; 
+// Make functions available globally
+window.selectAnswer = selectAnswer;
+window.toggleBackgroundMusic = toggleBackgroundMusic;
+window.setMusicVolume = setMusicVolume; 

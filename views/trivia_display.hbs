@@ -741,6 +741,20 @@
     </style>
 </head>
 <body>
+    <!-- Background Music -->
+    <audio id="background-music" loop preload="auto">
+        <source src="/static/assets/game-music-player-console-8bit-background-intro-theme-297305.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <!-- Music Control -->
+    <div style="position: fixed; top: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 5px;">
+        <button id="music-toggle" onclick="toggleBackgroundMusic()" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+            🔊 Music: ON
+        </button>
+        <input id="volume-control" type="range" min="0" max="100" value="30" onchange="setMusicVolume(this.value)" style="width: 60px; margin-left: 5px;">
+    </div>
+
     <!-- Waiting Screen -->
     <div class="waiting-screen" id="waiting-screen">
         <div class="waiting-message">🎮 Multiplayer Trivia Game</div>
