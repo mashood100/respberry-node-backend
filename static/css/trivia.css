@@ -541,33 +541,38 @@ body::before {
 @keyframes disappearAnswer {
     0% {
         opacity: 1;
-        transform: scale(1) rotateY(0deg) translateZ(0);
-        filter: blur(0px);
+        transform: scale(1) translateY(0) rotateX(0deg);
+        filter: brightness(1) contrast(1);
+        border-color: #000;
     }
-    20% {
-        transform: scale(0.98) rotateY(10deg) translateZ(-20px);
-        filter: blur(1px);
+    15% {
+        transform: scale(1.05) translateY(-10px) rotateX(0deg);
+        border-color: #ff4444;
     }
-    40% {
-        opacity: 0.8;
-        transform: scale(0.9) rotateY(25deg) translateZ(-40px);
-        filter: blur(2px);
+    25% {
+        opacity: 0.9;
+        transform: scale(0.95) translateY(-5px) rotateX(15deg);
+        filter: brightness(0.8) contrast(1.2);
+        border-color: #ff6666;
     }
-    60% {
-        opacity: 0.5;
-        transform: scale(0.7) rotateY(45deg) translateZ(-60px);
-        filter: blur(3px);
+    50% {
+        opacity: 0.6;
+        transform: scale(0.7) translateY(20px) rotateX(45deg);
+        filter: brightness(0.6) contrast(1.4);
+        border-color: #ff8888;
     }
-    80% {
-        opacity: 0.2;
-        transform: scale(0.4) rotateY(70deg) translateZ(-80px);
-        filter: blur(4px);
+    75% {
+        opacity: 0.3;
+        transform: scale(0.4) translateY(40px) rotateX(75deg);
+        filter: brightness(0.4) contrast(1.6);
+        border-color: #ffaaaa;
     }
     100% {
         opacity: 0;
-        transform: scale(0.1) rotateY(90deg) translateZ(-100px);
-        filter: blur(5px);
+        transform: scale(0.1) translateY(60px) rotateX(90deg);
+        filter: brightness(0.2) contrast(2);
         pointer-events: none;
+        border-color: transparent;
     }
 }
 
@@ -636,16 +641,32 @@ body::before {
     @keyframes disappearAnswer {
         0% {
             opacity: 1;
-            transform: scale(1);
+            transform: scale(1) translateY(0);
+            filter: brightness(1);
+            border-color: #000;
         }
-        50% {
-            opacity: 0.5;
-            transform: scale(0.8);
+        20% {
+            transform: scale(1.03) translateY(-8px);
+            border-color: #ff4444;
+        }
+        40% {
+            opacity: 0.7;
+            transform: scale(0.8) translateY(15px);
+            filter: brightness(0.7);
+            border-color: #ff6666;
+        }
+        70% {
+            opacity: 0.4;
+            transform: scale(0.5) translateY(30px);
+            filter: brightness(0.5);
+            border-color: #ff8888;
         }
         100% {
             opacity: 0;
-            transform: scale(0.3);
+            transform: scale(0.2) translateY(45px);
+            filter: brightness(0.3);
             pointer-events: none;
+            border-color: transparent;
         }
     }
 
