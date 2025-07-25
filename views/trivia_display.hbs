@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia Game Display - Game Hub</title>
+    <link rel="stylesheet" href="/static/css/trivia.css">
+    <style>
+        /* Additional styles for display screen */
+        .display-container {
+            background: transparent;
+            border: none;
+            padding: 20px;
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .game-header {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(45deg, #FFD700, #FFF700);
+            padding: 15px 30px;
+            border-radius: 15px;
+            border: 4px solid #000;
+            z-index: 100;
+        }
+
+        .game-title {
+            font-size: 1.8em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #000;
+            margin: 0;
+            text-shadow: 2px 2px 0px #FFF, -2px -2px 0px #FFF, 2px -2px 0px #FFF, -2px 2px 0px #FFF;
+        }
+
+        .scoreboard {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 4px solid #000;
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 250px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .scoreboard-title {
+            font-size: 1.4em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #000;
+            margin-bottom: 15px;
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: #f0f0f0;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+
+        .player-item.answered {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+
+        .player-name {
+            font-weight: bold;
+            font-size: 1em;
+        }
+
+        .player-score {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .waiting-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .waiting-message {
+            font-size: 2.5em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #FFF;
+            background: linear-gradient(45deg, #FFD700, #FFF700);
+            padding: 30px 50px;
+            border-radius: 20px;
+            border: 4px solid #000;
+            text-shadow: 3px 3px 0px #000, -3px -3px 0px #000, 3px -3px 0px #000, -3px 3px 0px #000;
+            margin-bottom: 30px;
+        }
+
+        .player-count {
+            font-size: 1.5em;
+            color: #FFF;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+        }
+
+        .question-number {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 4px solid #000;
+            border-radius: 15px;
+            padding: 15px 20px;
+            font-size: 1.3em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #000;
+            z-index: 100;
+        }
+
+        .final-results {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .results-title {
+            font-size: 3em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #FFF;
+            background: linear-gradient(45deg, #FFD700, #FFF700);
+            padding: 30px 50px;
+            border-radius: 20px;
+            border: 4px solid #000;
+            text-shadow: 3px 3px 0px #000, -3px -3px 0px #000, 3px -3px 0px #000, -3px 3px 0px #000;
+            margin-bottom: 40px;
+        }
+
+        .winner-podium {
+            display: flex;
+            gap: 30px;
+            align-items: end;
+        }
+
+        .podium-place {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            border: 4px solid #000;
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 150px;
+        }
+
+        .podium-place.first {
+            background: linear-gradient(145deg, #FFD700, #FFA500);
+            order: 2;
+        }
+
+        .podium-place.second {
+            background: linear-gradient(145deg, #C0C0C0, #A8A8A8);
+            order: 1;
+        }
+
+        .podium-place.third {
+            background: linear-gradient(145deg, #CD7F32, #B8860B);
+            order: 3;
+        }
+
+        .admin-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+        }
+
+        /* Instructions Screen Styles */
+        .instructions-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .instructions-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            border: 4px solid #000;
+            backdrop-filter: blur(10px);
+        }
+
+        .instructions-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .instructions-title {
+            font-size: 2.5em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #000;
+            margin: 0 0 10px 0;
+            text-shadow: 2px 2px 0px #FFD700, -2px -2px 0px #FFD700, 2px -2px 0px #FFD700, -2px 2px 0px #FFD700;
+        }
+
+        .instructions-subtitle {
+            font-size: 1.2em;
+            color: #666;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .steps-container {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .step-card {
+            flex: 1;
+            background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+            border: 3px solid #000;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-card.active {
+            background: linear-gradient(145deg, #d4edda, #c3e6cb);
+            border-color: #28a745;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .step-card.completed {
+            background: linear-gradient(145deg, #d1ecf1, #bee5eb);
+            border-color: #17a2b8;
+        }
+
+        .step-number {
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: #000;
+            color: #FFD700;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.2em;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+        }
+
+        .step-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .step-title {
+            font-size: 1.4em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #000;
+            margin: 0 0 15px 0;
+        }
+
+        .step-description {
+            font-size: 1em;
+            color: #555;
+            line-height: 1.6;
+            margin: 0 0 15px 0;
+        }
+
+        .step-description strong {
+            color: #000;
+            font-weight: 900;
+        }
+
+        .url-display {
+            background: #000;
+            color: #00ff00;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+            display: inline-block;
+            margin: 5px 0;
+        }
+
+        .step-status {
+            background: #ffc107;
+            color: #000;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            display: inline-block;
+        }
+
+        .step-status.connected {
+            background: #28a745;
+            color: white;
+        }
+
+        .step-status.ready {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .qr-code-container {
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .qr-code {
+            max-width: 120px;
+            width: 100%;
+            height: auto;
+            border: 4px solid #000;
+            border-radius: 10px;
+            background: white;
+            padding: 5px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .qr-code:hover {
+            transform: scale(1.1);
+        }
+
+        .qr-label {
+            margin: 8px 0 0 0;
+            font-size: 0.85em;
+            font-weight: bold;
+            color: #000;
+            background: rgba(255, 215, 0, 0.9);
+            padding: 4px 8px;
+            border-radius: 12px;
+            display: inline-block;
+            border: 2px solid #000;
+        }
+
+        .password-warning {
+            background: rgba(244, 67, 54, 0.1);
+            border: 2px solid #f44336;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+            color: #f44336;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .instructions-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .connected-players {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .player-count-badge {
+            background: linear-gradient(45deg, #4CAF50, #45A049);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 50%;
+            font-weight: 900;
+            font-size: 1.2em;
+            min-width: 40px;
+            text-align: center;
+            border: 3px solid #000;
+        }
+
+        .instructions-controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: 3px solid #000;
+            border-radius: 10px;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(45deg, #0056b3, #003d82);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #6c757d;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #6c757d, #5a6268);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(45deg, #5a6268, #495057);
+            transform: translateY(-2px);
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .instructions-container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .instructions-title {
+                font-size: 2em;
+            }
+
+            .steps-container {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .instructions-footer {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+
+            .instructions-controls {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn {
+                width: 100%;
+                padding: 15px;
+            }
+
+            .qr-code {
+                max-width: 100px;
+            }
+
+            .qr-label {
+                font-size: 0.75em;
+                padding: 3px 6px;
+            }
+
+            .step-description {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Waiting Screen -->
+    <div class="waiting-screen" id="waiting-screen">
+        <div class="waiting-message">🎮 Multiplayer Trivia Game</div>
+        <div class="player-count" id="player-count-waiting">
+            Waiting for players... (0 connected)
+        </div>
+        <div class="admin-controls">
+            <button class="btn btn-primary" onclick="showInstructions()" id="start-btn">
+                🚀 Start Game
+            </button>
+            <button class="btn btn-secondary" onclick="resetGame()">
+                🔄 Reset Game
+            </button>
+        </div>
+    </div>
+
+    <!-- Instructions Screen -->
+    <div class="instructions-screen" id="instructions-screen" style="display: none;">
+        <div class="instructions-container">
+            <div class="instructions-header">
+                <h1 class="instructions-title">🎮 How to Join the Game</h1>
+                <p class="instructions-subtitle">Follow these simple steps to connect and play</p>
+            </div>
+
+            <div class="steps-container">
+                <div class="step-card" id="step-1">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-icon">📶</div>
+                        <h3 class="step-title">Connect to Hotspot</h3>
+                        <p class="step-description">
+                            Connect your mobile device to the game's WiFi hotspot:<br>
+                            <strong>Network: {{hotspotName}}</strong>
+                            {{#if hotspotPassword}}
+                                <br><strong>Password: {{hotspotPassword}}</strong>
+                            {{/if}}
+                            <br><small>Or scan the QR code below:</small>
+                        </p>
+                        {{#if wifiQrCode}}
+                            <div class="qr-code-container">
+                                <img src="data:image/png;base64,{{wifiQrCode}}" alt="WiFi QR Code" class="qr-code">
+                                <p class="qr-label">📱 Scan to connect to WiFi</p>
+                            </div>
+                        {{else}}
+                            {{#if passwordWarning}}
+                                <div class="password-warning">{{passwordWarning}}</div>
+                            {{/if}}
+                        {{/if}}
+                        <div class="step-status" id="step-1-status">Waiting for connection...</div>
+                    </div>
+                </div>
+
+                <div class="step-card" id="step-2" style="opacity: 0.5;">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-icon">📱</div>
+                        <h3 class="step-title">Open Game on Your Phone</h3>
+                        <p class="step-description">
+                            Open your mobile browser and go to:<br>
+                            <strong class="url-display">{{userUrl}}</strong><br>
+                            <small>Or scan the QR code below:</small>
+                        </p>
+                        {{#if userUrlQrCode}}
+                            <div class="qr-code-container">
+                                <img src="data:image/png;base64,{{userUrlQrCode}}" alt="User Page QR Code" class="qr-code">
+                                <p class="qr-label">🎮 Scan to join game</p>
+                            </div>
+                        {{/if}}
+                        <div class="step-status" id="step-2-status">Complete step 1 first</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="instructions-footer">
+                <div class="connection-info">
+                    <div class="connected-players">
+                        <span class="player-count-badge" id="instruction-player-count">0</span>
+                        <span>Players Connected</span>
+                    </div>
+                </div>
+                <div class="instructions-controls">
+                    <button class="btn btn-secondary" onclick="backToWaiting()">
+                        ← Back
+                    </button>
+                    <button class="btn btn-primary" onclick="startGameNow()" id="start-game-btn" disabled>
+                        🚀 Start Game Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Display -->
+    <div class="display-container" id="game-display" style="display: none;">
+        <div class="game-header">
+            <h1 class="game-title" id="phase-title">Question Phase</h1>
+        </div>
+
+        <div class="question-number" id="question-number">
+            Question 1 of 5
+        </div>
+
+        <div class="scoreboard" id="scoreboard">
+            <div class="scoreboard-title">Live Scoreboard</div>
+            <div id="scoreboard-content">
+                <!-- Players will be populated here -->
+            </div>
+        </div>
+
+        <!-- Full-Screen Question View -->
+        <div class="fullscreen-view" id="fullscreen-question-view">
+            <div class="fullscreen-question" id="fullscreen-question-text">
+                What is the capital city of France?
+            </div>
+            <div class="fullscreen-countdown" id="fullscreen-countdown">
+                Question starting in <span id="question-countdown">10</span> seconds
+            </div>
+        </div>
+
+        <!-- Main Game Screen -->
+        <div class="question-header" id="main-game-content" style="display: none;">
+            <p class="question-text" id="question-text">
+                What is the capital city of France?
+            </p>
+            
+            <div class="progress-section">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="answers-container" id="answers-container">
+                <div class="answer-option" id="option-0">
+                    <div class="answer-content">
+                        <span class="answer-letter">A</span>
+                        <span class="answer-text">London</span>
+                    </div>
+                    <div class="elimination-overlay">
+                        <span class="elimination-text">❌ Eliminated</span>
+                    </div>
+                </div>
+                <div class="answer-option" id="option-1">
+                    <div class="answer-content">
+                        <span class="answer-letter">B</span>
+                        <span class="answer-text">Berlin</span>
+                    </div>
+                    <div class="elimination-overlay">
+                        <span class="elimination-text">❌ Eliminated</span>
+                    </div>
+                </div>
+                <div class="answer-option" id="option-2">
+                    <div class="answer-content">
+                        <span class="answer-letter">C</span>
+                        <span class="answer-text">Paris</span>
+                    </div>
+                    <div class="elimination-overlay">
+                        <span class="elimination-text">❌ Eliminated</span>
+                    </div>
+                </div>
+                <div class="answer-option" id="option-3">
+                    <div class="answer-content">
+                        <span class="answer-letter">D</span>
+                        <span class="answer-text">Madrid</span>
+                    </div>
+                    <div class="elimination-overlay">
+                        <span class="elimination-text">❌ Eliminated</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-status" id="game-status">
+                <p class="status-text">Waiting for game to start...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Final Results Screen -->
+    <div class="final-results" id="final-results" style="display: none;">
+        <div class="results-title">🏆 Final Results</div>
+        <div class="winner-podium" id="winner-podium">
+            <!-- Top 3 players will be shown here -->
+        </div>
+        <div class="admin-controls">
+            <button class="btn btn-primary" onclick="resetGame()">
+                🔄 Play Again
+            </button>
+        </div>
+    </div>
+
+    <script src="/static/js/trivia_display.js"></script>
+</body>
+</html> 

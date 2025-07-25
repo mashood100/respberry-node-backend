@@ -29,6 +29,274 @@ const gameData = {
     activeContentId: null
 };
 
+// Multiplayer Trivia Game State
+const triviaGameState = {
+    isActive: false,
+    currentPhase: 'waiting', // 'waiting', 'question-display', 'answering', 'results', 'finished'
+    currentQuestionIndex: 0,
+    timeRemaining: 40,
+    questionDisplayTimeRemaining: 10,
+    players: new Map(), // sessionId -> player object
+    currentAnswers: new Map(), // sessionId -> answer
+    gameTimer: null,
+    questionDisplayTimer: null,
+    questions: [
+        {
+            question: "What is the capital city of France?",
+            correct: "Paris",
+            options: ["London", "Berlin", "Paris", "Madrid"]
+        },
+        {
+            question: "Which planet is known as the Red Planet?",
+            correct: "Mars", 
+            options: ["Venus", "Mars", "Jupiter", "Saturn"]
+        },
+        {
+            question: "What is the largest mammal in the world?",
+            correct: "Blue Whale",
+            options: ["African Elephant", "Blue Whale", "Giraffe", "Sperm Whale"]
+        },
+        {
+            question: "In which year did World War II end?",
+            correct: "1945",
+            options: ["1943", "1944", "1945", "1946"]
+        },
+        {
+            question: "What is the chemical symbol for gold?",
+            correct: "Au",
+            options: ["Go", "Gd", "Au", "Ag"]
+        }
+    ]
+};
+
+// Player management functions
+function addPlayer(sessionId, deviceInfo) {
+    if (!triviaGameState.players.has(sessionId)) {
+        const player = {
+            sessionId: sessionId,
+            name: `Player ${triviaGameState.players.size + 1}`,
+            score: 0,
+            currentAnswer: null,
+            answeredAt: null,
+            isConnected: true,
+            deviceInfo: deviceInfo
+        };
+        triviaGameState.players.set(sessionId, player);
+        console.log(`✅ Player added: ${player.name} (${sessionId})`);
+        broadcastGameState();
+        return player;
+    }
+    return triviaGameState.players.get(sessionId);
+}
+
+function removePlayer(sessionId) {
+    if (triviaGameState.players.has(sessionId)) {
+        const player = triviaGameState.players.get(sessionId);
+        triviaGameState.players.delete(sessionId);
+        console.log(`❌ Player removed: ${player.name} (${sessionId})`);
+        broadcastGameState();
+    }
+}
+
+function updatePlayerAnswer(sessionId, answer) {
+    const player = triviaGameState.players.get(sessionId);
+    if (player && triviaGameState.currentPhase === 'answering') {
+        player.currentAnswer = answer;
+        player.answeredAt = Date.now();
+        triviaGameState.currentAnswers.set(sessionId, answer);
+        console.log(`📝 ${player.name} answered: ${answer}`);
+        
+        // Check if answer is correct and award points
+        const currentQuestion = triviaGameState.questions[triviaGameState.currentQuestionIndex];
+        if (answer === currentQuestion.correct) {
+            player.score += 1;
+            console.log(`🎉 ${player.name} got it right! Score: ${player.score}`);
+        }
+        
+        broadcastGameState();
+        return true;
+    }
+    return false;
+}
+
+function getGameState() {
+    const currentQuestion = triviaGameState.questions[triviaGameState.currentQuestionIndex];
+    return {
+        isActive: triviaGameState.isActive,
+        currentPhase: triviaGameState.currentPhase,
+        currentQuestionIndex: triviaGameState.currentQuestionIndex,
+        totalQuestions: triviaGameState.questions.length,
+        timeRemaining: triviaGameState.timeRemaining,
+        questionDisplayTimeRemaining: triviaGameState.questionDisplayTimeRemaining,
+        currentQuestion: currentQuestion,
+        players: Array.from(triviaGameState.players.values()),
+        playerCount: triviaGameState.players.size,
+        answeredCount: triviaGameState.currentAnswers.size
+    };
+}
+
+function broadcastGameState() {
+    const state = getGameState();
+    io.emit('game_state_update', state);
+    console.log(`📡 Broadcasting game state: ${state.currentPhase}, players: ${state.playerCount}`);
+}
+
+// Game control functions
+function startTriviaGame() {
+    if (triviaGameState.isActive) {
+        console.log('🚫 Game already active');
+        return false;
+    }
+    
+    console.log('🚀 Starting multiplayer trivia game');
+    triviaGameState.isActive = true;
+    triviaGameState.currentPhase = 'question-display';
+    triviaGameState.currentQuestionIndex = 0;
+    triviaGameState.questionDisplayTimeRemaining = 10;
+    triviaGameState.timeRemaining = 40;
+    
+    // Clear previous answers
+    triviaGameState.currentAnswers.clear();
+    triviaGameState.players.forEach(player => {
+        player.currentAnswer = null;
+        player.answeredAt = null;
+    });
+    
+    broadcastGameState();
+    startQuestionDisplayPhase();
+    return true;
+}
+
+function startQuestionDisplayPhase() {
+    console.log('📖 Starting question display phase (10 seconds)');
+    triviaGameState.currentPhase = 'question-display';
+    triviaGameState.questionDisplayTimeRemaining = 10;
+    
+    triviaGameState.questionDisplayTimer = setInterval(() => {
+        triviaGameState.questionDisplayTimeRemaining--;
+        broadcastGameState();
+        
+        if (triviaGameState.questionDisplayTimeRemaining <= 0) {
+            clearInterval(triviaGameState.questionDisplayTimer);
+            startAnsweringPhase();
+        }
+    }, 1000);
+}
+
+function startAnsweringPhase() {
+    console.log('⏰ Starting answering phase (40 seconds)');
+    triviaGameState.currentPhase = 'answering';
+    triviaGameState.timeRemaining = 40;
+    
+    triviaGameState.gameTimer = setInterval(() => {
+        triviaGameState.timeRemaining--;
+        broadcastGameState();
+        
+        // Handle elimination at specific times
+        if (triviaGameState.timeRemaining === 30) {
+            io.emit('eliminate_wrong_answer', { eliminationCount: 1 });
+        } else if (triviaGameState.timeRemaining === 20) {
+            io.emit('eliminate_wrong_answer', { eliminationCount: 2 });
+        }
+        
+        if (triviaGameState.timeRemaining <= 0) {
+            clearInterval(triviaGameState.gameTimer);
+            endQuestion();
+        }
+    }, 1000);
+}
+
+function endQuestion() {
+    console.log('🏁 Question ended, showing results');
+    triviaGameState.currentPhase = 'results';
+    
+    // Calculate and broadcast results
+    const currentQuestion = triviaGameState.questions[triviaGameState.currentQuestionIndex];
+    const results = {
+        correctAnswer: currentQuestion.correct,
+        playerResults: Array.from(triviaGameState.players.values()).map(player => ({
+            name: player.name,
+            answer: player.currentAnswer,
+            isCorrect: player.currentAnswer === currentQuestion.correct,
+            score: player.score,
+            answeredAt: player.answeredAt
+        }))
+    };
+    
+    io.emit('question_results', results);
+    broadcastGameState();
+    
+    // Move to next question or end game
+    setTimeout(() => {
+        triviaGameState.currentQuestionIndex++;
+        if (triviaGameState.currentQuestionIndex >= triviaGameState.questions.length) {
+            endGame();
+        } else {
+            // Clear answers for next question
+            triviaGameState.currentAnswers.clear();
+            triviaGameState.players.forEach(player => {
+                player.currentAnswer = null;
+                player.answeredAt = null;
+            });
+            startQuestionDisplayPhase();
+        }
+    }, 5000); // Show results for 5 seconds
+}
+
+function endGame() {
+    console.log('🎊 Game finished!');
+    triviaGameState.currentPhase = 'finished';
+    triviaGameState.isActive = false;
+    
+    // Calculate final rankings
+    const finalResults = Array.from(triviaGameState.players.values())
+        .sort((a, b) => b.score - a.score)
+        .map((player, index) => ({
+            rank: index + 1,
+            name: player.name,
+            score: player.score,
+            sessionId: player.sessionId
+        }));
+    
+    io.emit('game_finished', {
+        finalResults: finalResults,
+        totalQuestions: triviaGameState.questions.length
+    });
+    
+    broadcastGameState();
+}
+
+function resetTriviaGame() {
+    console.log('🔄 Resetting trivia game');
+    
+    // Clear timers
+    if (triviaGameState.gameTimer) {
+        clearInterval(triviaGameState.gameTimer);
+        triviaGameState.gameTimer = null;
+    }
+    if (triviaGameState.questionDisplayTimer) {
+        clearInterval(triviaGameState.questionDisplayTimer);
+        triviaGameState.questionDisplayTimer = null;
+    }
+    
+    // Reset game state
+    triviaGameState.isActive = false;
+    triviaGameState.currentPhase = 'waiting';
+    triviaGameState.currentQuestionIndex = 0;
+    triviaGameState.timeRemaining = 40;
+    triviaGameState.questionDisplayTimeRemaining = 10;
+    triviaGameState.currentAnswers.clear();
+    
+    // Reset player scores but keep them connected
+    triviaGameState.players.forEach(player => {
+        player.score = 0;
+        player.currentAnswer = null;
+        player.answeredAt = null;
+    });
+    
+    broadcastGameState();
+}
+
 // Simple data management functions
 function createContent(data) {
     const content = {
@@ -276,13 +544,75 @@ app.get('/admin-panel/', (req, res) => {
     }
 });
 
-// Trivia Question Route
-app.get('/trivia/', (req, res) => {
+// Trivia Question Route (Main Display Screen)
+app.get('/trivia/', async (req, res) => {
     try {
-        console.log('🎯 Trivia page accessed');
-        res.render('trivia_question');
+        console.log('🎯 Trivia main display accessed');
+        
+        // Get network information for QR codes
+        const currentIp = await NetworkUtils.getLocalIp();
+        const userUrl = `http://${currentIp}:8000/user/`;
+        
+        const [hotspotName, hotspotPassword, hotspotSource] = await NetworkUtils.getDeviceHotspotSettings();
+        
+        let passwordWarning = null;
+        let wifiQrCode = null;
+        
+        if (!hotspotPassword) {
+            passwordWarning = "⚠️ Could not detect hotspot password. Please check your system settings.";
+        } else {
+            // Generate WiFi QR code that connects to hotspot and opens user page
+            wifiQrCode = await QRCodeGenerator.generateWifiQrCode(hotspotName, hotspotPassword, userUrl);
+        }
+        
+        // Generate URL QR code specifically for user page
+        const userUrlQrCode = await QRCodeGenerator.generateQrCode(userUrl);
+        
+        console.log('🔗 Generated QR codes for trivia game:', {
+            hotspotName,
+            hasPassword: !!hotspotPassword,
+            userUrl
+        });
+        
+        res.render('trivia_display', {
+            currentIp,
+            userUrl,
+            hotspotName,
+            hotspotPassword: hotspotPassword || "❌ PASSWORD NEEDED",
+            hotspotSource,
+            passwordWarning,
+            wifiQrCode,
+            userUrlQrCode
+        });
     } catch (error) {
         console.error('Error in trivia route:', error);
+        res.status(500).send('Server Error');
+    }
+});
+
+// User Route (Individual Player Screen)
+app.get('/user/', (req, res) => {
+    try {
+        const sessionId = req.sessionID;
+        const deviceId = getDeviceId(req);
+        
+        // Get client IP
+        const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
+        const userAgent = req.headers['user-agent'] || '';
+        
+        console.log('📱 User client connecting from IP:', ip);
+        
+        // Track this device as a player
+        const device = trackDevice(sessionId, ip, userAgent);
+        
+        res.render('trivia_user', {
+            device: {
+                sessionId: device.sessionId,
+                id: device.id
+            }
+        });
+    } catch (error) {
+        console.error('Error in user route:', error);
         res.status(500).send('Server Error');
     }
 });
@@ -459,7 +789,7 @@ app.get('/api/stats/', (req, res) => {
     }
 });
 
-// WebSocket handling with enhanced debugging
+// WebSocket handling with enhanced debugging and multiplayer trivia
 io.on('connection', (socket) => {
     console.log('🔗 Client connected:', socket.id, '| Total clients:', io.engine.clientsCount);
     
@@ -482,6 +812,59 @@ io.on('connection', (socket) => {
     } else {
         console.log('📭 No active content to send to new client:', socket.id);
     }
+    
+    // MULTIPLAYER TRIVIA EVENTS
+    
+    // Player joins trivia game
+    socket.on('join_trivia_game', (data) => {
+        console.log('🎮 Player joining trivia game:', socket.id, data);
+        const player = addPlayer(data.sessionId, {
+            socketId: socket.id,
+            userAgent: data.userAgent || 'Unknown'
+        });
+        
+        // Send current game state to the player
+        socket.emit('game_state_update', getGameState());
+        socket.emit('player_joined', {
+            player: player,
+            gameState: getGameState()
+        });
+        
+        // Store session ID in socket for cleanup
+        socket.sessionId = data.sessionId;
+    });
+    
+    // Player submits an answer
+    socket.on('submit_answer', (data) => {
+        console.log('📝 Answer submitted:', socket.id, data);
+        const success = updatePlayerAnswer(data.sessionId, data.answer);
+        
+        socket.emit('answer_submitted', {
+            success: success,
+            answer: data.answer,
+            timestamp: Date.now()
+        });
+    });
+    
+    // Game control events (for host/admin)
+    socket.on('start_trivia_game', () => {
+        console.log('🚀 Start game request from:', socket.id);
+        const started = startTriviaGame();
+        socket.emit('game_start_response', { success: started });
+    });
+    
+    socket.on('reset_trivia_game', () => {
+        console.log('🔄 Reset game request from:', socket.id);
+        resetTriviaGame();
+        socket.emit('game_reset_response', { success: true });
+    });
+    
+    // Request current game state
+    socket.on('get_game_state', () => {
+        socket.emit('game_state_update', getGameState());
+    });
+    
+    // ORIGINAL CONTENT MANAGEMENT EVENTS
     
     // Handle device heartbeat
     socket.on('device_heartbeat', (data) => {
@@ -539,6 +922,12 @@ io.on('connection', (socket) => {
     
     socket.on('disconnect', (reason) => {
         console.log('❌ Client disconnected:', socket.id, '| Reason:', reason, '| Remaining clients:', io.engine.clientsCount);
+        
+        // Remove player from trivia game if they were connected
+        if (socket.sessionId) {
+            console.log('🎮 Removing player from trivia game:', socket.sessionId);
+            removePlayer(socket.sessionId);
+        }
     });
     
     socket.on('connect_error', (error) => {
