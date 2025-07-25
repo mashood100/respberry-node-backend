@@ -9,7 +9,11 @@ let gameState = {
     currentQuestion: null,
     timeRemaining: 40,
     questionDisplayTimeRemaining: 10,
-    eliminatedAnswers: []
+    eliminatedAnswers: [],
+    currentQuestionId: null, // Track current question to avoid resetting eliminations
+    answerEliminationPhase: 'initial', // initial, first-eliminated, second-eliminated, final-reveal, correct-reveal
+    eliminationTimer: null,
+    finalRevealTimer: null
 };
 
 // DOM Elements
@@ -118,7 +122,7 @@ function initializeSocket() {
 
 // Update game state and UI
 function updateGameState(state) {
-    gameState = state;
+    gameState = { ...gameState, ...state };
     updateUI();
     updateScoreboard();
     updateProgress();
@@ -244,15 +248,140 @@ function showAnsweringPhase() {
     elements.mainGameContent.style.display = 'block';
     
     if (gameState.currentQuestion) {
+        // Check if this is a new question to avoid resetting eliminations during the same question
+        const questionId = gameState.currentQuestion.question + JSON.stringify(gameState.currentQuestion.options);
+        const isNewQuestion = gameState.currentQuestionId !== questionId;
+        
+        if (isNewQuestion) {
+            gameState.currentQuestionId = questionId;
+            gameState.answerEliminationPhase = 'initial';
+            clearTimeout(gameState.eliminationTimer);
+            clearTimeout(gameState.finalRevealTimer);
+        }
+        
         elements.questionText.textContent = gameState.currentQuestion.question;
-        updateAnswerOptions(gameState.currentQuestion.options);
+        updateAnswerOptions(gameState.currentQuestion.options, isNewQuestion);
+        
+        // Start elimination timer for new questions only
+        if (isNewQuestion) {
+            startEliminationTimer();
+        }
     }
     
     updateGameStatus();
 }
 
+// Clear elimination timers
+function clearEliminationTimers() {
+    clearTimeout(gameState.eliminationTimer);
+    clearTimeout(gameState.finalRevealTimer);
+}
+
+// Start the elimination timer sequence
+function startEliminationTimer() {
+    console.log('🕐 Starting elimination timer sequence');
+    
+    // First elimination after 10 seconds
+    gameState.eliminationTimer = setTimeout(() => {
+        if (gameState.answerEliminationPhase === 'initial') {
+            console.log('🕐 First elimination at 10 seconds');
+            gameState.answerEliminationPhase = 'first-eliminated';
+            eliminateRandomWrongAnswer();
+            
+            // Second elimination after another 10 seconds (20 seconds total)
+            gameState.eliminationTimer = setTimeout(() => {
+                if (gameState.answerEliminationPhase === 'first-eliminated') {
+                    console.log('🕐 Second elimination at 20 seconds');
+                    gameState.answerEliminationPhase = 'second-eliminated';
+                    eliminateRandomWrongAnswer();
+                    
+                    // Final reveal after 20 more seconds (40 seconds total)
+                    gameState.finalRevealTimer = setTimeout(() => {
+                        if (gameState.answerEliminationPhase === 'second-eliminated') {
+                            console.log('🕐 Final reveal at 40 seconds');
+                            gameState.answerEliminationPhase = 'final-reveal';
+                            showFinalAnswersReveal();
+                        }
+                    }, 20000);
+                }
+            }, 10000);
+        }
+    }, 10000);
+}
+
+// Show final answers reveal (highlight remaining 2 answers)
+function showFinalAnswersReveal() {
+    console.log('✨ Showing final answers reveal');
+    
+    // Highlight remaining answers with a special effect
+    elements.answerOptions.forEach((option, index) => {
+        if (!gameState.eliminatedAnswers.includes(index)) {
+            option.classList.add('final-reveal');
+            
+            // Add a pulsing highlight effect
+            option.style.animation = 'finalRevealPulse 1s ease-in-out 3';
+        }
+    });
+    
+    updateGameStatus('🎯 Final two answers revealed! Showing correct answer next...');
+    
+    // Show correct answer after 3 seconds
+    setTimeout(() => {
+        showCorrectAnswerFullScreen();
+    }, 3000);
+}
+
+// Show correct answer in full-screen
+function showCorrectAnswerFullScreen() {
+    if (!gameState.currentQuestion) return;
+    
+    console.log('🎯 Showing correct answer full-screen');
+    gameState.answerEliminationPhase = 'correct-reveal';
+    
+    // Create full-screen overlay for correct answer
+    const correctAnswer = gameState.currentQuestion.correct;
+    const correctIndex = gameState.currentQuestion.options.indexOf(correctAnswer);
+    const letterAnswer = String.fromCharCode(65 + correctIndex);
+    
+    // Hide main game content and show full-screen correct answer
+    elements.mainGameContent.style.display = 'none';
+    elements.fullscreenQuestionView.classList.add('active');
+    elements.fullscreenQuestionView.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+    
+    elements.fullscreenQuestionText.innerHTML = `
+        <div style="font-size: 0.6em; color: #fff; margin-bottom: 20px;">Correct Answer:</div>
+        <div style="font-size: 1.2em; font-weight: 900; color: #FFD700; margin-bottom: 15px;">
+            ${letterAnswer}. ${correctAnswer}
+        </div>
+    `;
+    
+    elements.questionCountdown.innerHTML = `
+        <div style="font-size: 0.8em; color: #fff;">
+            🎉 Moving to next question in <span id="next-question-countdown">5</span> seconds
+        </div>
+    `;
+    
+    // Countdown to next question
+    let countdown = 5;
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        const countdownEl = document.getElementById('next-question-countdown');
+        if (countdownEl) {
+            countdownEl.textContent = countdown;
+        }
+        
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            // Reset full-screen view styling
+            elements.fullscreenQuestionView.style.background = '';
+            elements.fullscreenQuestionView.classList.remove('active');
+            elements.mainGameContent.style.display = 'block';
+        }
+    }, 1000);
+}
+
 // Update answer options
-function updateAnswerOptions(options) {
+function updateAnswerOptions(options, isNewQuestion = false) {
     if (!options) return;
     
     elements.answerOptions.forEach((option, index) => {
@@ -263,16 +392,28 @@ function updateAnswerOptions(options) {
             letterSpan.textContent = String.fromCharCode(65 + index); // A, B, C, D
             textSpan.textContent = options[index];
             
-            // Reset elimination state
-            option.classList.remove('eliminated', 'correct');
-            const overlay = option.querySelector('.elimination-overlay');
-            overlay.style.opacity = '0';
-            overlay.style.transform = 'scale(0)';
+            // Only reset elimination state for new questions
+            if (isNewQuestion) {
+                option.classList.remove('eliminated', 'correct', 'final-reveal');
+                option.style.animation = '';
+                const overlay = option.querySelector('.elimination-overlay');
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    overlay.style.transform = 'scale(0)';
+                }
+            } else {
+                // For same question, maintain elimination state
+                if (gameState.eliminatedAnswers.includes(index)) {
+                    option.classList.add('eliminated');
+                }
+            }
         }
     });
     
-    // Reset eliminated answers tracking
-    gameState.eliminatedAnswers = [];
+    // Only reset eliminated answers tracking for new questions
+    if (isNewQuestion) {
+        gameState.eliminatedAnswers = [];
+    }
 }
 
 // Eliminate a random wrong answer
@@ -297,10 +438,14 @@ function eliminateRandomWrongAnswer() {
     optionElement.classList.add('eliminated');
     
     console.log(`❌ Eliminated option ${answerToEliminate.index}: ${answerToEliminate.option}`);
+    updateGameStatus(`❌ Wrong answer eliminated! ${gameState.eliminatedAnswers.length} down, ${4 - gameState.eliminatedAnswers.length} remaining.`);
 }
 
 // Show question results
 function showQuestionResults(results) {
+    // Clear any ongoing timers
+    clearEliminationTimers();
+    
     // Highlight correct answer
     if (gameState.currentQuestion) {
         const correctAnswer = results.correctAnswer;
@@ -316,6 +461,9 @@ function showQuestionResults(results) {
 
 // Show final results
 function showFinalResults(data) {
+    // Clear any ongoing timers
+    clearEliminationTimers();
+    
     elements.waitingScreen.style.display = 'none';
     elements.instructionsScreen.style.display = 'none';
     elements.gameDisplay.style.display = 'none';
@@ -387,29 +535,33 @@ function updateProgress() {
 
 
 // Update game status
-function updateGameStatus() {
+function updateGameStatus(customStatus = null) {
     let statusText = '';
     
-    switch (gameState.currentPhase) {
-        case 'waiting':
-            statusText = 'Waiting for players to join...';
-            break;
-        case 'question-display':
-            statusText = `Reading question... ${gameState.questionDisplayTimeRemaining}s remaining`;
-            break;
-        case 'answering':
-            const answered = gameState.answeredCount || 0;
-            const total = gameState.playerCount || 0;
-            statusText = `Players answered: ${answered}/${total} • Time: ${gameState.timeRemaining}s`;
-            break;
-        case 'results':
-            statusText = 'Showing results...';
-            break;
-        case 'finished':
-            statusText = 'Game completed!';
-            break;
-        default:
-            statusText = 'Game in progress...';
+    if (customStatus) {
+        statusText = customStatus;
+    } else {
+        switch (gameState.currentPhase) {
+            case 'waiting':
+                statusText = 'Waiting for players to join...';
+                break;
+            case 'question-display':
+                statusText = `Reading question... ${gameState.questionDisplayTimeRemaining}s remaining`;
+                break;
+            case 'answering':
+                const answered = gameState.answeredCount || 0;
+                const total = gameState.playerCount || 0;
+                statusText = `Players answered: ${answered}/${total} • Time: ${gameState.timeRemaining}s`;
+                break;
+            case 'results':
+                statusText = 'Showing results...';
+                break;
+            case 'finished':
+                statusText = 'Game completed!';
+                break;
+            default:
+                statusText = 'Game in progress...';
+        }
     }
     
     if (elements.gameStatus && elements.gameStatus.querySelector('.status-text')) {
