@@ -122,7 +122,7 @@ function initializeSocket() {
     // Answer elimination events
     socket.on('eliminate_wrong_answer', function(data) {
         console.log('❌ Eliminating wrong answer:', data);
-        eliminateRandomWrongAnswer();
+        eliminateAnswer(data.answerIndex);
     });
     
     // Question results
@@ -315,35 +315,29 @@ function resetAnswerState() {
     playerData.currentAnswer = null;
     playerData.hasAnswered = false;
     
+    // Reset eliminated answers array for new question
+    gameState.eliminatedAnswers = [];
+    
     elements.answerOptions.forEach(option => {
         option.classList.remove('selected', 'eliminated', 'correct');
+        option.style.animation = ''; // Clear any animations
     });
     
     elements.answerSubmitted.style.display = 'none';
 }
 
-// Eliminate a random wrong answer
-function eliminateRandomWrongAnswer() {
-    if (!gameState.currentQuestion) return;
-    
-    const correctAnswer = gameState.currentQuestion.correct;
-    const availableWrongAnswers = gameState.currentQuestion.options
-        .map((option, index) => ({ option, index }))
-        .filter(item => item.option !== correctAnswer && !gameState.eliminatedAnswers.includes(item.index));
-    
-    if (availableWrongAnswers.length === 0) return;
-    
-    // Randomly select a wrong answer to eliminate
-    const randomIndex = Math.floor(Math.random() * availableWrongAnswers.length);
-    const answerToEliminate = availableWrongAnswers[randomIndex];
-    
-    gameState.eliminatedAnswers.push(answerToEliminate.index);
-    
+// Eliminate a specific answer
+function eliminateAnswer(answerIndex) {
+    if (typeof answerIndex === 'undefined' || !elements.answerOptions[answerIndex]) return;
+
+    gameState.eliminatedAnswers.push(answerIndex);
+
     // Apply elimination animation
-    const optionElement = elements.answerOptions[answerToEliminate.index];
+    const optionElement = elements.answerOptions[answerIndex];
     optionElement.classList.add('eliminated');
+    optionElement.style.animation = 'disappearAnswer 1.2s ease-in-out forwards';
     
-    console.log(`❌ Eliminated option ${answerToEliminate.index}: ${answerToEliminate.option}`);
+    console.log(`❌ Eliminated option ${answerIndex}`);
 }
 
 // Show question results

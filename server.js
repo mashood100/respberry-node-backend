@@ -66,7 +66,8 @@ const triviaGameState = {
             correct: "Au",
             options: ["Go", "Gd", "Au", "Ag"]
         }
-    ]
+    ],
+    eliminatedAnswers: [] // New array to track eliminated wrong answers
 };
 
 // Player management functions
@@ -188,15 +189,18 @@ function startAnsweringPhase() {
     triviaGameState.currentPhase = 'answering';
     triviaGameState.timeRemaining = 40;
     
+    // Clear any existing timer before starting a new one
+    if (triviaGameState.gameTimer) {
+        clearInterval(triviaGameState.gameTimer);
+    }
+    
     triviaGameState.gameTimer = setInterval(() => {
         triviaGameState.timeRemaining--;
         broadcastGameState();
         
         // Handle elimination at specific times
-        if (triviaGameState.timeRemaining === 30) {
-            io.emit('eliminate_wrong_answer', { eliminationCount: 1 });
-        } else if (triviaGameState.timeRemaining === 20) {
-            io.emit('eliminate_wrong_answer', { eliminationCount: 2 });
+        if (triviaGameState.timeRemaining === 30 || triviaGameState.timeRemaining === 20) {
+            eliminateWrongAnswer();
         }
         
         if (triviaGameState.timeRemaining <= 0) {
@@ -204,6 +208,27 @@ function startAnsweringPhase() {
             endQuestion();
         }
     }, 1000);
+}
+
+function eliminateWrongAnswer() {
+    const currentQuestion = triviaGameState.questions[triviaGameState.currentQuestionIndex];
+    if (!currentQuestion) return;
+
+    // Find answers that are not correct and have not been eliminated yet
+    const availableWrongAnswers = currentQuestion.options
+        .map((option, index) => ({ option, index }))
+        .filter(item => item.option !== currentQuestion.correct && !triviaGameState.eliminatedAnswers.includes(item.index));
+
+    if (availableWrongAnswers.length > 0) {
+        // Randomly select one wrong answer to eliminate
+        const randomIndex = Math.floor(Math.random() * availableWrongAnswers.length);
+        const answerToEliminate = availableWrongAnswers[randomIndex];
+
+        // Add to eliminated list and broadcast
+        triviaGameState.eliminatedAnswers.push(answerToEliminate.index);
+        io.emit('eliminate_wrong_answer', { answerIndex: answerToEliminate.index });
+        console.log(`❌ Eliminating answer index: ${answerToEliminate.index}`);
+    }
 }
 
 function endQuestion() {
@@ -234,6 +259,7 @@ function endQuestion() {
         } else {
             // Clear answers for next question
             triviaGameState.currentAnswers.clear();
+            triviaGameState.eliminatedAnswers = []; // Reset eliminated answers for the new question
             triviaGameState.players.forEach(player => {
                 player.currentAnswer = null;
                 player.answeredAt = null;
@@ -286,6 +312,7 @@ function resetTriviaGame() {
     triviaGameState.timeRemaining = 40;
     triviaGameState.questionDisplayTimeRemaining = 10;
     triviaGameState.currentAnswers.clear();
+    triviaGameState.eliminatedAnswers = []; // Reset eliminated answers
     
     // Reset player scores but keep them connected
     triviaGameState.players.forEach(player => {

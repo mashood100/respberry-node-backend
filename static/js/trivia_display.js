@@ -11,9 +11,7 @@ let gameState = {
     questionDisplayTimeRemaining: 10,
     eliminatedAnswers: [],
     currentQuestionId: null, // Track current question to avoid resetting eliminations
-    answerEliminationPhase: 'initial', // initial, first-eliminated, second-eliminated, final-reveal, correct-reveal
-    eliminationTimer: null,
-    finalRevealTimer: null
+    answerEliminationPhase: 'initial' // initial, first-eliminated, second-eliminated, final-reveal, correct-reveal
 };
 
 // DOM Elements
@@ -92,7 +90,7 @@ function initializeSocket() {
     // Answer elimination events
     socket.on('eliminate_wrong_answer', function(data) {
         console.log('❌ Eliminating wrong answer:', data);
-        eliminateRandomWrongAnswer();
+        eliminateAnswer(data.answerIndex);
     });
     
     // Question results
@@ -255,58 +253,13 @@ function showAnsweringPhase() {
         if (isNewQuestion) {
             gameState.currentQuestionId = questionId;
             gameState.answerEliminationPhase = 'initial';
-            clearTimeout(gameState.eliminationTimer);
-            clearTimeout(gameState.finalRevealTimer);
         }
         
         elements.questionText.textContent = gameState.currentQuestion.question;
         updateAnswerOptions(gameState.currentQuestion.options, isNewQuestion);
-        
-        // Start elimination timer for new questions only
-        if (isNewQuestion) {
-            startEliminationTimer();
-        }
     }
     
     updateGameStatus();
-}
-
-// Clear elimination timers
-function clearEliminationTimers() {
-    clearTimeout(gameState.eliminationTimer);
-    clearTimeout(gameState.finalRevealTimer);
-}
-
-// Start the elimination timer sequence
-function startEliminationTimer() {
-    console.log('🕐 Starting elimination timer sequence');
-    
-    // First elimination after 10 seconds
-    gameState.eliminationTimer = setTimeout(() => {
-        if (gameState.answerEliminationPhase === 'initial') {
-            console.log('🕐 First elimination at 10 seconds');
-            gameState.answerEliminationPhase = 'first-eliminated';
-            eliminateRandomWrongAnswer();
-            
-            // Second elimination after another 10 seconds (20 seconds total)
-            gameState.eliminationTimer = setTimeout(() => {
-                if (gameState.answerEliminationPhase === 'first-eliminated') {
-                    console.log('🕐 Second elimination at 20 seconds');
-                    gameState.answerEliminationPhase = 'second-eliminated';
-                    eliminateRandomWrongAnswer();
-                    
-                    // Final reveal after 20 more seconds (40 seconds total)
-                    gameState.finalRevealTimer = setTimeout(() => {
-                        if (gameState.answerEliminationPhase === 'second-eliminated') {
-                            console.log('🕐 Final reveal at 40 seconds');
-                            gameState.answerEliminationPhase = 'final-reveal';
-                            showFinalAnswersReveal();
-                        }
-                    }, 20000);
-                }
-            }, 10000);
-        }
-    }, 10000);
 }
 
 // Show final answers reveal (highlight remaining 2 answers)
@@ -416,35 +369,25 @@ function updateAnswerOptions(options, isNewQuestion = false) {
     }
 }
 
-// Eliminate a random wrong answer
-function eliminateRandomWrongAnswer() {
-    if (!gameState.currentQuestion) return;
-    
-    const correctAnswer = gameState.currentQuestion.correct;
-    const availableWrongAnswers = gameState.currentQuestion.options
-        .map((option, index) => ({ option, index }))
-        .filter(item => item.option !== correctAnswer && !gameState.eliminatedAnswers.includes(item.index));
-    
-    if (availableWrongAnswers.length === 0) return;
-    
-    // Randomly select a wrong answer to eliminate
-    const randomIndex = Math.floor(Math.random() * availableWrongAnswers.length);
-    const answerToEliminate = availableWrongAnswers[randomIndex];
-    
-    gameState.eliminatedAnswers.push(answerToEliminate.index);
+// Eliminate a specific wrong answer
+function eliminateAnswer(answerIndex) {
+    if (typeof answerIndex === 'undefined') return;
+
+    gameState.eliminatedAnswers.push(answerIndex);
     
     // Apply elimination animation
-    const optionElement = elements.answerOptions[answerToEliminate.index];
-    optionElement.classList.add('eliminated');
-    
-    console.log(`❌ Eliminated option ${answerToEliminate.index}: ${answerToEliminate.option}`);
-    updateGameStatus(`❌ Wrong answer eliminated! ${gameState.eliminatedAnswers.length} down, ${4 - gameState.eliminatedAnswers.length} remaining.`);
+    const optionElement = elements.answerOptions[answerIndex];
+    if (optionElement) {
+        optionElement.classList.add('eliminated');
+        console.log(`❌ Eliminated option ${answerIndex}`);
+        updateGameStatus(`❌ Wrong answer eliminated! ${gameState.eliminatedAnswers.length} down, ${4 - gameState.eliminatedAnswers.length} remaining.`);
+    }
 }
 
 // Show question results
 function showQuestionResults(results) {
     // Clear any ongoing timers
-    clearEliminationTimers();
+    // clearEliminationTimers(); // This function is removed, so this line is removed.
     
     // Highlight correct answer
     if (gameState.currentQuestion) {
@@ -462,7 +405,7 @@ function showQuestionResults(results) {
 // Show final results
 function showFinalResults(data) {
     // Clear any ongoing timers
-    clearEliminationTimers();
+    // clearEliminationTimers(); // This function is removed, so this line is removed.
     
     elements.waitingScreen.style.display = 'none';
     elements.instructionsScreen.style.display = 'none';
