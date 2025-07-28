@@ -130,10 +130,25 @@
 
         .answer-option.selected {
             background: linear-gradient(145deg, #FFD700, #FFA500);
-            border-color: #FF6B35;
+            border: 4px solid #FF6B35;
             color: #000;
             text-shadow: 2px 2px 0px #FFF, -2px -2px 0px #FFF, 2px -2px 0px #FFF, -2px 2px 0px #FFF;
             animation: selectedPulse 1s ease-in-out infinite;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+            position: relative;
+        }
+
+        .answer-option.selected::before {
+            content: "✓";
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 1.5em;
+            font-weight: 900;
+            color: #28a745;
+            text-shadow: 2px 2px 0px #FFF, -2px -2px 0px #FFF, 2px -2px 0px #FFF, -2px 2px 0px #FFF;
+            z-index: 10;
         }
 
         .answer-option.disabled {
@@ -207,9 +222,123 @@
             color: #000;
         }
 
+        /* User Leaderboard Styles */
+        .leaderboard-message {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: #FFF;
+        }
+
+        .leaderboard-user-content {
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid #000;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            max-width: 90%;
+            width: 400px;
+        }
+
+        .user-leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            font-weight: bold;
+            border: 2px solid #ddd;
+        }
+
+        .user-leaderboard-item.current-user {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border-color: #155724;
+            color: #FFF;
+            animation: highlightUser 2s ease-in-out infinite;
+        }
+
+        .user-leaderboard-item.rank-1 {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            border-color: #FF6B35;
+            color: #000;
+        }
+
+        .user-leaderboard-item.rank-2 {
+            background: linear-gradient(45deg, #C0C0C0, #A8A8A8);
+            border-color: #666;
+            color: #000;
+        }
+
+        .user-leaderboard-item.rank-3 {
+            background: linear-gradient(45deg, #CD7F32, #B8860B);
+            border-color: #8B4513;
+            color: #FFF;
+        }
+
+        .user-leaderboard-item.rank-other {
+            background: #f8f9fa;
+            border-color: #007bff;
+            color: #000;
+        }
+
+        .user-rank-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-rank-number {
+            font-size: 1.2em;
+            font-weight: 900;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .user-player-name {
+            font-size: 1.1em;
+            font-weight: 900;
+        }
+
+        .user-player-score {
+            font-size: 1.1em;
+            font-weight: 900;
+            padding: 5px 10px;
+            background: #007bff;
+            color: white;
+            border-radius: 15px;
+            border: 1px solid #000;
+        }
+
+        .next-question-notice {
+            font-size: 1.2em;
+            color: #FFF;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 15px;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            border: 2px solid #FFF;
+        }
+
+        @keyframes highlightUser {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 10px rgba(40, 167, 69, 0.8);
+            }
+            50% { 
+                transform: scale(1.02);
+                box-shadow: 0 0 20px rgba(40, 167, 69, 1);
+            }
+        }
+
         @keyframes selectedPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.03); }
+            0%, 100% { 
+                transform: scale(1.05);
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.3);
+            }
+            50% { 
+                transform: scale(1.08);
+                box-shadow: 0 0 30px rgba(255, 215, 0, 1), inset 0 0 25px rgba(255, 255, 255, 0.4);
+            }
         }
 
         @keyframes slideUp {
@@ -374,6 +503,29 @@
             .save-name-btn, .cancel-name-btn {
                 width: 120px;
             }
+
+            /* Mobile adjustments for selected answers */
+            .answer-option.selected {
+                transform: scale(1.03);
+                box-shadow: 0 0 15px rgba(255, 215, 0, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.3);
+            }
+
+            .answer-option.selected::before {
+                top: 5px;
+                right: 8px;
+                font-size: 1.2em;
+            }
+
+            @keyframes selectedPulse {
+                0%, 100% { 
+                    transform: scale(1.03);
+                    box-shadow: 0 0 15px rgba(255, 215, 0, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.3);
+                }
+                50% { 
+                    transform: scale(1.06);
+                    box-shadow: 0 0 20px rgba(255, 215, 0, 1), inset 0 0 20px rgba(255, 255, 255, 0.4);
+                }
+            }
         }
     </style>
 </head>
@@ -501,7 +653,7 @@
 
         <!-- Answer Submitted Notification -->
         <div class="answer-submitted" id="answer-submitted" style="display: none;">
-            ✅ Answer Submitted!
+            ✅ Answer Selected! (You can still change it)
         </div>
     </div>
 
@@ -515,13 +667,26 @@
         </div>
     </div>
 
+    <!-- Leaderboard Screen -->
+    <div class="question-results" id="leaderboard-screen" style="display: none;">
+        <div class="result-message leaderboard-message" id="leaderboard-message">
+            📊 Leaderboard
+        </div>
+        <div class="leaderboard-user-content" id="leaderboard-user-content">
+            <!-- Leaderboard content will be populated here -->
+        </div>
+        <div class="next-question-notice">
+            Next question starting soon...
+        </div>
+    </div>
+
     <!-- Final Results Screen -->
     <div class="question-results" id="final-results-screen" style="display: none;">
         <div class="result-message" id="final-result-message">
             🏆 Game Complete!
         </div>
         <div class="correct-answer-display" id="final-score-display">
-            Your Final Score: 3/5
+            Your Final Score: 3/20
         </div>
     </div>
 

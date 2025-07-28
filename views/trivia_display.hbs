@@ -23,6 +23,46 @@
             text-align: center;
         }
 
+        /* Enhanced centering for main game content */
+        .question-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Center the question text */
+        .question-text {
+            text-align: center;
+            margin: 0 auto 30px auto;
+            max-width: 800px;
+        }
+
+        /* Center progress section */
+        .progress-section {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        /* Center answers container */
+        .answers-container {
+            margin: 30px auto;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        /* Center game status */
+        .game-status {
+            text-align: center;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+
         .game-header {
             position: fixed;
             top: 20px;
@@ -183,6 +223,120 @@
             border-radius: 15px;
             padding: 20px;
             min-width: 150px;
+        }
+
+        /* Interim Leaderboard Styles */
+        .interim-leaderboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 40px;
+        }
+
+        .leaderboard-title {
+            font-size: 2.5em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #FFF;
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            padding: 25px 40px;
+            border-radius: 20px;
+            border: 4px solid #000;
+            text-shadow: 3px 3px 0px #000, -3px -3px 0px #000, 3px -3px 0px #000, -3px 3px 0px #000;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .leaderboard-content {
+            background: rgba(255, 255, 255, 0.95);
+            border: 4px solid #000;
+            border-radius: 15px;
+            padding: 30px;
+            min-width: 600px;
+            max-width: 800px;
+            margin-bottom: 30px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            margin: 10px 0;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border: 2px solid #ddd;
+        }
+
+        .leaderboard-item.rank-1 {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            border-color: #FF6B35;
+            color: #000;
+        }
+
+        .leaderboard-item.rank-2 {
+            background: linear-gradient(45deg, #C0C0C0, #A8A8A8);
+            border-color: #666;
+            color: #000;
+        }
+
+        .leaderboard-item.rank-3 {
+            background: linear-gradient(45deg, #CD7F32, #B8860B);
+            border-color: #8B4513;
+            color: #FFF;
+        }
+
+        .leaderboard-item.rank-other {
+            background: #f8f9fa;
+            border-color: #007bff;
+            color: #000;
+        }
+
+        .rank-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .rank-number {
+            font-size: 1.5em;
+            font-weight: 900;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .player-name-leaderboard {
+            font-size: 1.3em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+        }
+
+        .player-score-leaderboard {
+            font-size: 1.4em;
+            font-weight: 900;
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border-radius: 20px;
+            border: 2px solid #000;
+        }
+
+        .next-question-info {
+            text-align: center;
+        }
+
+        .countdown-message {
+            font-size: 1.5em;
+            color: #FFF;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            border: 2px solid #FFF;
         }
 
         .podium-place.first {
@@ -574,6 +728,38 @@
                 margin-bottom: 15px;
             }
 
+            /* Enhanced mobile centering */
+            .display-container {
+                padding: 10px;
+            }
+
+            .question-header {
+                max-width: 100%;
+                padding: 0 10px;
+            }
+
+            .question-text {
+                max-width: 100%;
+                margin-bottom: 20px;
+                font-size: 1.8em;
+            }
+
+            .progress-section {
+                max-width: 100%;
+                margin: 15px auto;
+            }
+
+            .answers-container {
+                max-width: 100%;
+                margin: 20px auto;
+                gap: 15px;
+            }
+
+            .game-status {
+                max-width: 100%;
+                margin: 15px auto;
+            }
+
             .steps-container {
                 flex-direction: column;
                 gap: 12px;
@@ -702,6 +888,16 @@
             .step-card {
                 padding: 10px 6px;
                 margin-top: 8px;
+            }
+
+            /* Small mobile centering adjustments */
+            .question-text {
+                font-size: 1.5em;
+            }
+
+            .answers-container {
+                grid-template-columns: 1fr;
+                gap: 10px;
             }
 
             .step-icon {
@@ -868,10 +1064,10 @@
         </div>
 
         <div class="question-number" id="question-number">
-            Question 1 of 5
+            Question 1 of 20
         </div>
 
-        <div class="scoreboard" id="scoreboard">
+        <div class="scoreboard" id="scoreboard" style="display: none;">
             <div class="scoreboard-title">Live Scoreboard</div>
             <div id="scoreboard-content">
                 <!-- Players will be populated here -->
@@ -942,6 +1138,17 @@
             <div class="game-status" id="game-status">
                 <p class="status-text">Waiting for game to start...</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Interim Leaderboard Screen -->
+    <div class="interim-leaderboard" id="interim-leaderboard" style="display: none;">
+        <div class="leaderboard-title" id="leaderboard-title">📊 Leaderboard After Question 5</div>
+        <div class="leaderboard-content" id="leaderboard-content">
+            <!-- Leaderboard will be shown here -->
+        </div>
+        <div class="next-question-info">
+            <div class="countdown-message">Next question starting soon...</div>
         </div>
     </div>
 

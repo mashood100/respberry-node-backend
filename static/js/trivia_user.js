@@ -82,6 +82,7 @@ const elements = {
     waitingScreen: document.getElementById('waiting-screen'),
     gameScreen: document.getElementById('game-screen'),
     resultsScreen: document.getElementById('results-screen'),
+    leaderboardScreen: document.getElementById('leaderboard-screen'),
     finalResultsScreen: document.getElementById('final-results-screen'),
     
     // Player info
@@ -116,7 +117,11 @@ const elements = {
     resultMessage: document.getElementById('result-message'),
     correctAnswerDisplay: document.getElementById('correct-answer-display'),
     finalResultMessage: document.getElementById('final-result-message'),
-    finalScoreDisplay: document.getElementById('final-score-display')
+    finalScoreDisplay: document.getElementById('final-score-display'),
+    
+    // Leaderboard elements
+    leaderboardMessage: document.getElementById('leaderboard-message'),
+    leaderboardUserContent: document.getElementById('leaderboard-user-content')
 };
 
 // Initialize player data from server
@@ -179,7 +184,7 @@ function initializeSocket() {
         console.log('📝 Answer submission response:', response);
         if (response.success) {
             showAnswerSubmitted();
-            disableAnswerOptions();
+            // Don't disable options - allow answer changes until time runs out
         }
     });
     
@@ -205,6 +210,12 @@ function initializeSocket() {
         showQuestionResults(results);
     });
     
+    // Show leaderboard (every 5 questions)
+    socket.on('show_leaderboard', function(data) {
+        console.log('📊 Show leaderboard:', data);
+        showLeaderboard(data);
+    });
+
     // Game finished
     socket.on('game_finished', function(data) {
         console.log('🏆 Game finished:', data);
@@ -247,6 +258,9 @@ function updateUI() {
             break;
         case 'results':
             // Results are handled by question_results event
+            break;
+        case 'leaderboard':
+            // Leaderboard is handled by show_leaderboard event
             break;
         case 'finished':
             // Final results are handled by game_finished event
@@ -304,16 +318,17 @@ function showAnsweringPhase() {
     if (gameState.currentQuestion) {
         elements.questionText.textContent = gameState.currentQuestion.question;
         updateAnswerOptions(gameState.currentQuestion.options);
+        
+        // Restore selected answer highlighting if player has already answered
+        if (playerData.hasAnswered && playerData.currentAnswer) {
+            restoreSelectedAnswer();
+        }
     }
     
     updateGameStatus();
     
-    // Enable answer options if player hasn't answered yet
-    if (!playerData.hasAnswered) {
-        enableAnswerOptions();
-    } else {
-        disableAnswerOptions();
-    }
+    // Always enable answer options during answering phase (allow changing answers)
+    enableAnswerOptions();
 }
 
 // Update answer options
@@ -358,8 +373,8 @@ function disableAnswerOptions() {
 
 // Select an answer
 function selectAnswer(index) {
-    if (playerData.hasAnswered || gameState.currentPhase !== 'answering') {
-        console.log('❌ Cannot select answer - already answered or wrong phase');
+    if (gameState.currentPhase !== 'answering') {
+        console.log('❌ Cannot select answer - wrong phase');
         return;
     }
     
@@ -369,6 +384,8 @@ function selectAnswer(index) {
     }
     
     const selectedAnswer = gameState.currentQuestion.options[index];
+    const previousAnswer = playerData.currentAnswer;
+    
     playerData.currentAnswer = selectedAnswer;
     playerData.hasAnswered = true;
     
@@ -387,7 +404,11 @@ function selectAnswer(index) {
         answer: selectedAnswer
     });
     
-    console.log('📝 Selected answer:', selectedAnswer);
+    if (previousAnswer && previousAnswer !== selectedAnswer) {
+        console.log('📝 Changed answer from:', previousAnswer, 'to:', selectedAnswer);
+    } else {
+        console.log('📝 Selected answer:', selectedAnswer);
+    }
 }
 
 // Show answer submitted notification
@@ -413,6 +434,24 @@ function resetAnswerState() {
     });
     
     elements.answerSubmitted.style.display = 'none';
+}
+
+// Restore selected answer highlighting
+function restoreSelectedAnswer() {
+    if (!gameState.currentQuestion || !playerData.currentAnswer) return;
+    
+    const answerIndex = gameState.currentQuestion.options.indexOf(playerData.currentAnswer);
+    
+    if (answerIndex !== -1 && elements.answerOptions[answerIndex]) {
+        // Clear all selections first
+        elements.answerOptions.forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        // Highlight the selected answer
+        elements.answerOptions[answerIndex].classList.add('selected');
+        console.log('🎯 Restored selection highlighting for answer:', playerData.currentAnswer);
+    }
 }
 
 // Eliminate a specific answer
@@ -464,11 +503,67 @@ function showQuestionResults(results) {
     }, 5000);
 }
 
+// Show leaderboard (every 5 questions)
+function showLeaderboard(data) {
+    elements.waitingScreen.style.display = 'none';
+    elements.gameScreen.style.display = 'none';
+    elements.resultsScreen.style.display = 'none';
+    elements.finalResultsScreen.style.display = 'none';
+    elements.leaderboardScreen.style.display = 'flex';
+    
+    // Update leaderboard title
+    if (elements.leaderboardMessage) {
+        elements.leaderboardMessage.textContent = 
+            `📊 Leaderboard - Question ${data.currentQuestion} of ${data.totalQuestions}`;
+    }
+    
+    // Clear and populate leaderboard content
+    if (elements.leaderboardUserContent) {
+        elements.leaderboardUserContent.innerHTML = '';
+        
+        data.leaderboard.forEach((player, index) => {
+            const leaderboardItem = document.createElement('div');
+            
+            // Determine class based on rank and if it's current user
+            let itemClass = 'user-leaderboard-item';
+            if (player.sessionId === playerData.sessionId) {
+                itemClass += ' current-user';
+            } else if (index === 0) {
+                itemClass += ' rank-1';
+            } else if (index === 1) {
+                itemClass += ' rank-2';
+            } else if (index === 2) {
+                itemClass += ' rank-3';
+            } else {
+                itemClass += ' rank-other';
+            }
+            
+            leaderboardItem.className = itemClass;
+            
+            const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            const isCurrentUser = player.sessionId === playerData.sessionId ? ' (You)' : '';
+            
+            leaderboardItem.innerHTML = `
+                <div class="user-rank-info">
+                    <div class="user-rank-number">${rankEmoji}</div>
+                    <div class="user-player-name">${player.name}${isCurrentUser}</div>
+                </div>
+                <div class="user-player-score">${player.score}/${data.currentQuestion}</div>
+            `;
+            
+            elements.leaderboardUserContent.appendChild(leaderboardItem);
+        });
+    }
+    
+    console.log('📊 Leaderboard displayed for user');
+}
+
 // Show final results
 function showFinalResults(data) {
     elements.waitingScreen.style.display = 'none';
     elements.gameScreen.style.display = 'none';
     elements.resultsScreen.style.display = 'none';
+    elements.leaderboardScreen.style.display = 'none';
     elements.finalResultsScreen.style.display = 'flex';
     
     const myResult = data.finalResults.find(r => r.sessionId === playerData.sessionId);
@@ -526,7 +621,7 @@ function updateGameStatus() {
     let statusText = '';
     
     if (playerData.hasAnswered) {
-        statusText = `✅ Answer submitted! Waiting for time to run out...`;
+        statusText = `✅ Answer selected! You can still change it. Time remaining: ${gameState.timeRemaining}s`;
     } else {
         statusText = `Select your answer! Time remaining: ${gameState.timeRemaining}s`;
     }

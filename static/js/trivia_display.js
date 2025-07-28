@@ -156,6 +156,12 @@ function initializeSocket() {
         showQuestionResults(results);
     });
     
+    // Show leaderboard (every 5 questions)
+    socket.on('show_leaderboard', function(data) {
+        console.log('📊 Show leaderboard:', data);
+        showInterimLeaderboard(data);
+    });
+
     // Game finished
     socket.on('game_finished', function(data) {
         console.log('🏆 Game finished:', data);
@@ -463,6 +469,54 @@ function showQuestionResults(results) {
     updateGameStatus('Results: Correct answer revealed!');
 }
 
+// Show interim leaderboard (every 5 questions)
+function showInterimLeaderboard(data) {
+    // Hide other screens
+    elements.waitingScreen.style.display = 'none';
+    elements.instructionsScreen.style.display = 'none';
+    elements.gameDisplay.style.display = 'none';
+    elements.finalResults.style.display = 'none';
+    
+    // Show interim leaderboard screen
+    const interimLeaderboard = document.getElementById('interim-leaderboard');
+    const leaderboardTitle = document.getElementById('leaderboard-title');
+    const leaderboardContent = document.getElementById('leaderboard-content');
+    
+    if (interimLeaderboard) {
+        interimLeaderboard.style.display = 'flex';
+    }
+    
+    // Update title
+    if (leaderboardTitle) {
+        leaderboardTitle.textContent = `📊 Leaderboard After Question ${data.currentQuestion} of ${data.totalQuestions}`;
+    }
+    
+    // Clear and populate leaderboard content
+    if (leaderboardContent) {
+        leaderboardContent.innerHTML = '';
+        
+        data.leaderboard.forEach((player, index) => {
+            const leaderboardItem = document.createElement('div');
+            const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'rank-other';
+            leaderboardItem.className = `leaderboard-item ${rankClass}`;
+            
+            const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            
+            leaderboardItem.innerHTML = `
+                <div class="rank-info">
+                    <div class="rank-number">${rankEmoji}</div>
+                    <div class="player-name-leaderboard">${player.name}</div>
+                </div>
+                <div class="player-score-leaderboard">${player.score}/${data.currentQuestion}</div>
+            `;
+            
+            leaderboardContent.appendChild(leaderboardItem);
+        });
+    }
+    
+    console.log('📊 Interim leaderboard displayed');
+}
+
 // Show final results
 function showFinalResults(data) {
     // Clear any ongoing timers
@@ -471,6 +525,13 @@ function showFinalResults(data) {
     elements.waitingScreen.style.display = 'none';
     elements.instructionsScreen.style.display = 'none';
     elements.gameDisplay.style.display = 'none';
+    
+    // Hide interim leaderboard
+    const interimLeaderboard = document.getElementById('interim-leaderboard');
+    if (interimLeaderboard) {
+        interimLeaderboard.style.display = 'none';
+    }
+    
     elements.finalResults.style.display = 'flex';
     
     // Create podium for top 3 players

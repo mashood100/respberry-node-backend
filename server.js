@@ -32,7 +32,7 @@ const gameData = {
 // Multiplayer Trivia Game State
 const triviaGameState = {
     isActive: false,
-    currentPhase: 'waiting', // 'waiting', 'question-display', 'answering', 'results', 'finished'
+    currentPhase: 'waiting', // 'waiting', 'question-display', 'answering', 'results', 'leaderboard', 'finished'
     currentQuestionIndex: 0,
     timeRemaining: 40,
     questionDisplayTimeRemaining: 10,
@@ -65,6 +65,81 @@ const triviaGameState = {
             question: "What is the chemical symbol for gold?",
             correct: "Au",
             options: ["Go", "Gd", "Au", "Ag"]
+        },
+        {
+            question: "Who painted the Mona Lisa?",
+            correct: "Leonardo da Vinci",
+            options: ["Pablo Picasso", "Leonardo da Vinci", "Vincent van Gogh", "Michelangelo"]
+        },
+        {
+            question: "What is the smallest country in the world?",
+            correct: "Vatican City",
+            options: ["Monaco", "Vatican City", "San Marino", "Liechtenstein"]
+        },
+        {
+            question: "Which element has the atomic number 1?",
+            correct: "Hydrogen",
+            options: ["Helium", "Hydrogen", "Oxygen", "Carbon"]
+        },
+        {
+            question: "What is the hardest natural substance on Earth?",
+            correct: "Diamond",
+            options: ["Diamond", "Gold", "Iron", "Quartz"]
+        },
+        {
+            question: "How many continents are there?",
+            correct: "7",
+            options: ["5", "6", "7", "8"]
+        },
+        {
+            question: "What is the currency of Japan?",
+            correct: "Yen",
+            options: ["Yuan", "Yen", "Won", "Rupee"]
+        },
+        {
+            question: "Which ocean is the largest?",
+            correct: "Pacific Ocean",
+            options: ["Atlantic Ocean", "Indian Ocean", "Pacific Ocean", "Arctic Ocean"]
+        },
+        {
+            question: "What gas do plants absorb from the atmosphere?",
+            correct: "Carbon Dioxide",
+            options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"]
+        },
+        {
+            question: "Who wrote 'Romeo and Juliet'?",
+            correct: "William Shakespeare",
+            options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"]
+        },
+        {
+            question: "What is the speed of light in vacuum?",
+            correct: "299,792,458 m/s",
+            options: ["299,792,458 m/s", "300,000,000 m/s", "299,000,000 m/s", "298,792,458 m/s"]
+        },
+        {
+            question: "Which planet has the most moons?",
+            correct: "Saturn",
+            options: ["Jupiter", "Saturn", "Earth", "Mars"]
+        },
+        {
+            question: "What is the largest desert in the world?",
+            correct: "Antarctica",
+            options: ["Sahara", "Arabian", "Antarctica", "Gobi"]
+        },
+        {
+            question: "Which programming language is known as the 'language of the web'?",
+            correct: "JavaScript",
+            options: ["Python", "Java", "JavaScript", "C++"]
+        },
+        {
+            question: "What is the formula for water?",
+            correct: "H2O",
+            options: ["H2O", "CO2", "O2", "H2SO4"]
+        },
+        {
+            question: "Who developed the theory of relativity?",
+            correct: "Albert Einstein",
+            options: ["Isaac Newton", "Albert Einstein", "Galileo Galilei", "Stephen Hawking"]
         }
     ],
     eliminatedAnswers: [] // New array to track eliminated wrong answers
@@ -168,8 +243,9 @@ function startTriviaGame() {
     triviaGameState.questionDisplayTimeRemaining = 10;
     triviaGameState.timeRemaining = 40;
     
-    // Clear previous answers
+    // Clear previous answers and eliminations
     triviaGameState.currentAnswers.clear();
+    triviaGameState.eliminatedAnswers = []; // Reset eliminated answers for first question
     triviaGameState.players.forEach(player => {
         player.currentAnswer = null;
         player.answeredAt = null;
@@ -266,19 +342,60 @@ function endQuestion() {
     // Move to next question or end game
     setTimeout(() => {
         triviaGameState.currentQuestionIndex++;
+        
         if (triviaGameState.currentQuestionIndex >= triviaGameState.questions.length) {
+            // Game finished - show final leaderboard
             endGame();
         } else {
-            // Clear answers for next question
-            triviaGameState.currentAnswers.clear();
-            triviaGameState.eliminatedAnswers = []; // Reset eliminated answers for the new question
-            triviaGameState.players.forEach(player => {
-                player.currentAnswer = null;
-                player.answeredAt = null;
-            });
-            startQuestionDisplayPhase();
+            // Check if we should show leaderboard (every 5 questions)
+            const questionNumber = triviaGameState.currentQuestionIndex + 1; // +1 because we just finished a question
+            if (questionNumber % 5 === 0) {
+                // Show leaderboard every 5 questions
+                showLeaderboard();
+            } else {
+                // Continue to next question
+                prepareNextQuestion();
+            }
         }
     }, 5000); // Show results for 5 seconds
+}
+
+function prepareNextQuestion() {
+    // Clear answers for next question
+    triviaGameState.currentAnswers.clear();
+    triviaGameState.eliminatedAnswers = []; // Reset eliminated answers for the new question
+    triviaGameState.players.forEach(player => {
+        player.currentAnswer = null;
+        player.answeredAt = null;
+    });
+    startQuestionDisplayPhase();
+}
+
+function showLeaderboard() {
+    console.log('📊 Showing leaderboard after question', triviaGameState.currentQuestionIndex);
+    triviaGameState.currentPhase = 'leaderboard';
+    
+    // Create leaderboard data
+    const leaderboardData = {
+        currentQuestion: triviaGameState.currentQuestionIndex,
+        totalQuestions: triviaGameState.questions.length,
+        leaderboard: Array.from(triviaGameState.players.values())
+            .sort((a, b) => b.score - a.score)
+            .map((player, index) => ({
+                rank: index + 1,
+                name: player.name,
+                score: player.score,
+                sessionId: player.sessionId
+            }))
+    };
+    
+    io.emit('show_leaderboard', leaderboardData);
+    broadcastGameState();
+    
+    // Continue to next question after 8 seconds
+    setTimeout(() => {
+        prepareNextQuestion();
+    }, 8000);
 }
 
 function endGame() {
