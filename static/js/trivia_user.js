@@ -273,6 +273,7 @@ function showWaitingScreen() {
     elements.waitingScreen.style.display = 'flex';
     elements.gameScreen.style.display = 'none';
     elements.resultsScreen.style.display = 'none';
+    elements.leaderboardScreen.style.display = 'none';
     elements.finalResultsScreen.style.display = 'none';
     
     elements.waitingInfo.textContent = 'Waiting for the game host to start the trivia...';
@@ -289,6 +290,7 @@ function showQuestionDisplayPhase() {
     elements.waitingScreen.style.display = 'none';
     elements.gameScreen.style.display = 'block';
     elements.resultsScreen.style.display = 'none';
+    elements.leaderboardScreen.style.display = 'none';
     elements.finalResultsScreen.style.display = 'none';
     
     // Hide name editor once game starts
@@ -314,6 +316,9 @@ function showAnsweringPhase() {
     // Hide full-screen question and show main game
     elements.fullscreenQuestionView.classList.remove('active');
     elements.mainGameContent.style.display = 'block';
+    
+    // Explicitly hide leaderboard screen when moving to answering phase
+    elements.leaderboardScreen.style.display = 'none';
     
     if (gameState.currentQuestion) {
         elements.questionText.textContent = gameState.currentQuestion.question;

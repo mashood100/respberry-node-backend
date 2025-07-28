@@ -209,6 +209,9 @@ function updateUI() {
         case 'results':
             // Results are handled by question_results event
             break;
+        case 'leaderboard':
+            // Leaderboard is handled by show_leaderboard event
+            break;
         case 'finished':
             // Final results are handled by game_finished event
             break;
@@ -221,6 +224,12 @@ function showWaitingScreen() {
     elements.instructionsScreen.style.display = 'none';
     elements.gameDisplay.style.display = 'none';
     elements.finalResults.style.display = 'none';
+    
+    // Explicitly hide interim leaderboard when returning to waiting
+    const interimLeaderboard = document.getElementById('interim-leaderboard');
+    if (interimLeaderboard) {
+        interimLeaderboard.style.display = 'none';
+    }
     
     elements.playerCountWaiting.textContent = 
         `Waiting for players... (${gameState.playerCount} connected)`;
@@ -296,6 +305,12 @@ function showQuestionDisplayPhase() {
     elements.gameDisplay.style.display = 'block';
     elements.finalResults.style.display = 'none';
     
+    // Explicitly hide interim leaderboard when moving to question phase
+    const interimLeaderboard = document.getElementById('interim-leaderboard');
+    if (interimLeaderboard) {
+        interimLeaderboard.style.display = 'none';
+    }
+    
     // Show full-screen question
     elements.fullscreenQuestionView.classList.add('active');
     elements.mainGameContent.style.display = 'none';
@@ -311,6 +326,12 @@ function showAnsweringPhase() {
     // Hide full-screen question and show main game
     elements.fullscreenQuestionView.classList.remove('active');
     elements.mainGameContent.style.display = 'block';
+    
+    // Explicitly hide interim leaderboard when moving to answering phase
+    const interimLeaderboard = document.getElementById('interim-leaderboard');
+    if (interimLeaderboard) {
+        interimLeaderboard.style.display = 'none';
+    }
     
     if (gameState.currentQuestion) {
         // Check if this is a new question to avoid resetting eliminations during the same question
