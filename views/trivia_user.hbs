@@ -223,6 +223,114 @@
             }
         }
 
+        /* Name Editor Styles */
+        .name-editor {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #FFD700;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .name-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .current-name {
+            font-size: 1.3em;
+            color: #FFD700;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            text-shadow: 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000;
+        }
+
+        .edit-name-btn {
+            background: linear-gradient(145deg, #007bff, #0056b3);
+            color: white;
+            border: 2px solid #000;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .edit-name-btn:hover {
+            background: linear-gradient(145deg, #0056b3, #004085);
+            transform: translateY(-2px);
+        }
+
+        .name-input-container {
+            text-align: center;
+        }
+
+        .name-input {
+            width: 100%;
+            max-width: 250px;
+            padding: 12px;
+            font-size: 1.1em;
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+            background: white;
+            color: #000;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .name-input:focus {
+            outline: none;
+            border-color: #FFA500;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .name-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .save-name-btn, .cancel-name-btn {
+            padding: 10px 15px;
+            border: 2px solid #000;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .save-name-btn {
+            background: linear-gradient(145deg, #28a745, #1e7e34);
+            color: white;
+        }
+
+        .save-name-btn:hover {
+            background: linear-gradient(145deg, #1e7e34, #155724);
+            transform: translateY(-2px);
+        }
+
+        .cancel-name-btn {
+            background: linear-gradient(145deg, #dc3545, #c82333);
+            color: white;
+        }
+
+        .cancel-name-btn:hover {
+            background: linear-gradient(145deg, #c82333, #a71e2a);
+            transform: translateY(-2px);
+        }
+
         /* Mobile optimizations */
         @media (max-width: 768px) {
             .waiting-title {
@@ -242,6 +350,29 @@
 
             .player-name {
                 font-size: 1em;
+            }
+
+            .name-editor {
+                padding: 15px;
+                margin: 15px 0;
+            }
+
+            .current-name {
+                font-size: 1.1em;
+            }
+
+            .name-display {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .name-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .save-name-btn, .cancel-name-btn {
+                width: 120px;
             }
         }
     </style>
@@ -279,6 +410,22 @@
     <!-- Waiting for Game Screen -->
     <div class="waiting-for-game" id="waiting-screen">
         <div class="waiting-title">📱 Ready to Play!</div>
+        
+        <!-- Name Editor -->
+        <div class="name-editor" id="name-editor">
+            <div class="name-display" id="name-display">
+                <span class="current-name" id="current-name-display">Player</span>
+                <button class="edit-name-btn" id="edit-name-btn" onclick="startEditingName()">✏️ Edit Name</button>
+            </div>
+            <div class="name-input-container" id="name-input-container" style="display: none;">
+                <input type="text" id="name-input" class="name-input" placeholder="Enter your name" maxlength="20">
+                <div class="name-actions">
+                    <button class="save-name-btn" onclick="saveNewName()">✅ Save</button>
+                    <button class="cancel-name-btn" onclick="cancelEditingName()">❌ Cancel</button>
+                </div>
+            </div>
+        </div>
+        
         <div class="waiting-info" id="waiting-info">
             Waiting for the game host to start the trivia...
         </div>

@@ -92,6 +92,13 @@ const elements = {
     // Waiting screen
     waitingInfo: document.getElementById('waiting-info'),
     
+    // Name editor
+    nameEditor: document.getElementById('name-editor'),
+    nameDisplay: document.getElementById('name-display'),
+    nameInputContainer: document.getElementById('name-input-container'),
+    currentNameDisplay: document.getElementById('current-name-display'),
+    nameInput: document.getElementById('name-input'),
+    
     // Full-screen question
     fullscreenQuestionView: document.getElementById('fullscreen-question-view'),
     fullscreenQuestionText: document.getElementById('fullscreen-question-text'),
@@ -182,6 +189,16 @@ function initializeSocket() {
         eliminateAnswer(data.answerIndex);
     });
     
+    // Name update response
+    socket.on('name_update_response', function(response) {
+        console.log('✏️ Name update response:', response);
+        if (!response.success) {
+            alert(`Failed to update name: ${response.reason || 'Unknown error'}`);
+            // Revert to previous name display
+            cancelEditingName();
+        }
+    });
+    
     // Question results
     socket.on('question_results', function(results) {
         console.log('📊 Question results:', results);
@@ -246,6 +263,11 @@ function showWaitingScreen() {
     
     elements.waitingInfo.textContent = 'Waiting for the game host to start the trivia...';
     elements.yourScore.style.display = 'none';
+    
+    // Show name editor during waiting phase
+    if (elements.nameEditor) {
+        elements.nameEditor.style.display = 'block';
+    }
 }
 
 // Show question display phase
@@ -254,6 +276,11 @@ function showQuestionDisplayPhase() {
     elements.gameScreen.style.display = 'block';
     elements.resultsScreen.style.display = 'none';
     elements.finalResultsScreen.style.display = 'none';
+    
+    // Hide name editor once game starts
+    if (elements.nameEditor) {
+        elements.nameEditor.style.display = 'none';
+    }
     
     // Show full-screen question
     elements.fullscreenQuestionView.classList.add('active');
@@ -469,6 +496,7 @@ function showFinalResults(data) {
 function updatePlayerDisplay() {
     elements.playerName.textContent = playerData.name;
     elements.yourScore.textContent = `Score: ${playerData.score}`;
+    updateNameEditor();
 }
 
 // Update connection status
@@ -514,7 +542,23 @@ window.addEventListener('load', () => {
     initializePlayerData();
     initializeSocket();
     initializeBackgroundMusic(); // Initialize music on page load
+    initializeNameEditor(); // Initialize name editor
 });
+
+// Initialize name editor with keyboard support
+function initializeNameEditor() {
+    if (elements.nameInput) {
+        elements.nameInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                saveNewName();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                cancelEditingName();
+            }
+        });
+    }
+}
 
 // Handle page visibility changes
 document.addEventListener('visibilitychange', () => {
@@ -524,7 +568,78 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// Name editing functions
+function startEditingName() {
+    if (gameState.currentPhase !== 'waiting') {
+        console.log('❌ Cannot edit name - game has started');
+        return;
+    }
+    
+    elements.nameDisplay.style.display = 'none';
+    elements.nameInputContainer.style.display = 'block';
+    elements.nameInput.value = playerData.name;
+    elements.nameInput.focus();
+    elements.nameInput.select();
+    
+    console.log('✏️ Started editing name');
+}
+
+function saveNewName() {
+    const newName = elements.nameInput.value.trim();
+    
+    if (!newName) {
+        alert('Please enter a valid name!');
+        return;
+    }
+    
+    if (newName.length > 20) {
+        alert('Name must be 20 characters or less!');
+        return;
+    }
+    
+    if (newName === playerData.name) {
+        cancelEditingName();
+        return;
+    }
+    
+    // Update local player data
+    playerData.name = newName;
+    
+    // Send name update to server
+    socket.emit('update_player_name', {
+        sessionId: playerData.sessionId,
+        newName: newName
+    });
+    
+    // Update displays
+    updatePlayerDisplay();
+    updateNameEditor();
+    
+    // Hide input and show display
+    elements.nameInputContainer.style.display = 'none';
+    elements.nameDisplay.style.display = 'flex';
+    
+    console.log('✅ Name updated to:', newName);
+}
+
+function cancelEditingName() {
+    elements.nameInputContainer.style.display = 'none';
+    elements.nameDisplay.style.display = 'flex';
+    elements.nameInput.value = '';
+    
+    console.log('❌ Name editing cancelled');
+}
+
+function updateNameEditor() {
+    if (elements.currentNameDisplay) {
+        elements.currentNameDisplay.textContent = playerData.name;
+    }
+}
+
 // Make functions available globally
 window.selectAnswer = selectAnswer;
 window.toggleBackgroundMusic = toggleBackgroundMusic;
-window.setMusicVolume = setMusicVolume; 
+window.setMusicVolume = setMusicVolume;
+window.startEditingName = startEditingName;
+window.saveNewName = saveNewName;
+window.cancelEditingName = cancelEditingName; 

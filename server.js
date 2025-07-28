@@ -120,6 +120,18 @@ function updatePlayerAnswer(sessionId, answer) {
     return false;
 }
 
+function updatePlayerName(sessionId, newName) {
+    const player = triviaGameState.players.get(sessionId);
+    if (player && triviaGameState.currentPhase === 'waiting') {
+        const oldName = player.name;
+        player.name = newName.trim().substring(0, 20); // Limit to 20 characters
+        console.log(`✏️ Player name updated: ${oldName} -> ${player.name} (${sessionId})`);
+        broadcastGameState();
+        return { success: true, newName: player.name };
+    }
+    return { success: false, reason: 'Cannot update name after game starts' };
+}
+
 function getGameState() {
     const currentQuestion = triviaGameState.questions[triviaGameState.currentQuestionIndex];
     return {
@@ -889,6 +901,19 @@ io.on('connection', (socket) => {
         socket.emit('answer_submitted', {
             success: success,
             answer: data.answer,
+            timestamp: Date.now()
+        });
+    });
+    
+    // Player updates their name
+    socket.on('update_player_name', (data) => {
+        console.log('✏️ Name update request:', socket.id, data);
+        const result = updatePlayerName(data.sessionId, data.newName);
+        
+        socket.emit('name_update_response', {
+            success: result.success,
+            newName: result.newName,
+            reason: result.reason,
             timestamp: Date.now()
         });
     });
