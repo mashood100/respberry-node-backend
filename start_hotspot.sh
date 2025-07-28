@@ -83,25 +83,117 @@ check_root() {
     fi
 }
 
-# Function to detect WiFi interface
+# Function to fix RF-kill issues
+fix_rfkill_issues() {
+    print_status "Checking and fixing RF-kill issues..."
+    
+    # Install rfkill if not present
+    if ! command -v rfkill &> /dev/null; then
+        print_status "Installing rfkill utility..."
+        sudo apt install -y rfkill >/dev/null 2>&1
+    fi
+    
+    # Check RF-kill status
+    local wifi_blocked_soft=$(rfkill list wifi 2>/dev/null | grep -c "Soft blocked: yes" || echo "0")
+    local wifi_blocked_hard=$(rfkill list wifi 2>/dev/null | grep -c "Hard blocked: yes" || echo "0")
+    
+    if [ "$wifi_blocked_soft" -gt 0 ]; then
+        print_warning "WiFi is software blocked by RF-kill, unblocking..."
+        sudo rfkill unblock wifi
+        sudo rfkill unblock wlan
+        sudo rfkill unblock all
+        sleep 2
+    fi
+    
+    if [ "$wifi_blocked_hard" -gt 0 ]; then
+        print_error "WiFi is hardware blocked by RF-kill!"
+        print_error "Please check for physical WiFi switch or hardware issue"
+        exit 1
+    fi
+    
+    # Load WiFi drivers if needed
+    print_status "Loading WiFi drivers..."
+    sudo modprobe brcmfmac 2>/dev/null || true
+    sudo modprobe brcmutil 2>/dev/null || true
+    sudo modprobe cfg80211 2>/dev/null || true
+    
+    # Wait for drivers to initialize
+    sleep 2
+    
+    print_status "RF-kill issues resolved"
+}
+
+# Enhanced function to detect WiFi interface
 detect_wifi_interface() {
     print_status "Detecting WiFi interface..."
     
-    # Try to find wlan interface
-    if ip link show wlan0 >/dev/null 2>&1; then
-        WIFI_INTERFACE="wlan0"
-    elif ip link show wlan1 >/dev/null 2>&1; then
-        WIFI_INTERFACE="wlan1"
-    else
-        # Find any wireless interface
-        WIFI_INTERFACE=$(iw dev | grep Interface | awk '{print $2}' | head -1)
-        if [ -z "$WIFI_INTERFACE" ]; then
-            print_error "No WiFi interface found. Please ensure WiFi is enabled."
-            exit 1
-        fi
+    local interfaces=()
+    
+    # Method 1: Use iw to find wireless interfaces
+    if command -v iw &> /dev/null; then
+        while IFS= read -r line; do
+            if [[ $line =~ Interface[[:space:]]+([^[:space:]]+) ]]; then
+                local iface="${BASH_REMATCH[1]}"
+                interfaces+=("$iface")
+                print_status "Found wireless interface: $iface"
+            fi
+        done < <(iw dev 2>/dev/null || true)
     fi
     
-    print_status "Using WiFi interface: $WIFI_INTERFACE"
+    # Method 2: Check /sys/class/net for wireless interfaces
+    for iface in /sys/class/net/*/wireless; do
+        if [ -d "$iface" ]; then
+            local iface_name=$(basename $(dirname "$iface"))
+            if [[ ! " ${interfaces[@]} " =~ " ${iface_name} " ]]; then
+                interfaces+=("$iface_name")
+                print_status "Found wireless interface: $iface_name"
+            fi
+        fi
+    done
+    
+    # Method 3: Check common interface names
+    local common_names=("wlan0" "wlan1" "wlp2s0" "wlp3s0")
+    for name in "${common_names[@]}"; do
+        if ip link show "$name" &>/dev/null; then
+            if [[ ! " ${interfaces[@]} " =~ " ${name} " ]]; then
+                interfaces+=("$name")
+                print_status "Found wireless interface: $name"
+            fi
+        fi
+    done
+    
+    if [ ${#interfaces[@]} -eq 0 ]; then
+        print_error "No WiFi interface found after RF-kill fixes!"
+        print_error "Please ensure WiFi hardware is properly connected and supported"
+        print_error "Try: sudo rfkill list all"
+        exit 1
+    fi
+    
+    # Select preferred interface (prioritize wlan0, then wlan1, then others)
+    for pref in "wlan0" "wlan1"; do
+        if [[ " ${interfaces[@]} " =~ " ${pref} " ]]; then
+            WIFI_INTERFACE="$pref"
+            break
+        fi
+    done
+    
+    if [ -z "$WIFI_INTERFACE" ]; then
+        WIFI_INTERFACE="${interfaces[0]}"
+    fi
+    
+    print_status "Selected WiFi interface: $WIFI_INTERFACE"
+    
+    # Test if interface supports AP mode
+    if command -v iw &> /dev/null; then
+        local phy=$(iw "$WIFI_INTERFACE" info 2>/dev/null | grep wiphy | awk '{print $2}' || echo "")
+        if [ -n "$phy" ]; then
+            if iw phy "$phy" info 2>/dev/null | grep -A 20 "Supported interface modes" | grep -q "AP"; then
+                print_status "✅ Interface supports AP (Access Point) mode"
+            else
+                print_warning "⚠️ Interface may not support AP mode - hotspot may fail"
+            fi
+        fi
+    fi
 }
 
 # Function to check and install dependencies
@@ -112,8 +204,8 @@ install_dependencies() {
     sudo apt update >/dev/null 2>&1 &
     show_spinner $! "Updating package list"
     
-    # Install required packages
-    packages=("hostapd" "dnsmasq" "iptables")
+    # Install required packages with wireless tools
+    packages=("hostapd" "dnsmasq" "iptables" "rfkill" "wireless-tools" "iw" "firmware-brcm80211")
     
     for package in "${packages[@]}"; do
         if ! dpkg -l | grep -q "^ii  $package "; then
@@ -124,27 +216,43 @@ install_dependencies() {
             print_status "$package is already installed"
         fi
     done
+    
+    # Ensure WiFi is unblocked after installing rfkill
+    print_status "Ensuring WiFi is unblocked..."
+    sudo rfkill unblock all 2>/dev/null || true
 }
 
-# Function to stop conflicting services
+# Enhanced function to stop conflicting services
 stop_conflicting_services() {
     print_status "Stopping conflicting services..."
     
-    # Stop wpa_supplicant if running
-    if systemctl is-active --quiet wpa_supplicant; then
-        sudo systemctl stop wpa_supplicant
-        print_status "Stopped wpa_supplicant"
-    fi
-    
-    # Stop NetworkManager if running
-    if systemctl is-active --quiet NetworkManager; then
-        sudo systemctl stop NetworkManager
-        print_status "Stopped NetworkManager"
-    fi
-    
-    # Stop existing hostapd and dnsmasq
+    # Stop existing hostapd and dnsmasq processes first
     sudo pkill -f hostapd >/dev/null 2>&1 || true
     sudo pkill -f dnsmasq >/dev/null 2>&1 || true
+    
+    # Handle wpa_supplicant more carefully
+    if pgrep wpa_supplicant >/dev/null; then
+        print_warning "Stopping wpa_supplicant (this will disconnect from current WiFi)"
+        sudo systemctl stop wpa_supplicant 2>/dev/null || true
+        sudo pkill wpa_supplicant 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Stop NetworkManager if it's managing our interface
+    if systemctl is-active --quiet NetworkManager 2>/dev/null; then
+        if command -v nmcli &> /dev/null && nmcli device show "$WIFI_INTERFACE" &>/dev/null; then
+            print_warning "Setting NetworkManager to ignore $WIFI_INTERFACE"
+            sudo nmcli device set "$WIFI_INTERFACE" managed false 2>/dev/null || true
+        fi
+    fi
+    
+    # Stop systemd-resolved if it conflicts with dnsmasq
+    if systemctl is-active --quiet systemd-resolved; then
+        if command -v ss &> /dev/null && ss -tlnp 2>/dev/null | grep -q ":53.*systemd-resolved"; then
+            print_warning "Stopping systemd-resolved to avoid DNS conflicts"
+            sudo systemctl stop systemd-resolved
+        fi
+    fi
 }
 
 # Function to configure hostapd
@@ -227,20 +335,39 @@ EOF
     print_status "dnsmasq configuration created"
 }
 
-# Function to configure network interface
+# Enhanced function to configure network interface
 configure_network() {
     print_status "Configuring network interface..."
     
-    # Bring down the interface
-    sudo ip link set $WIFI_INTERFACE down
+    # Bring down the interface first
+    sudo ip link set "$WIFI_INTERFACE" down 2>/dev/null || true
+    sleep 1
     
-    # Configure the interface
-    sudo ip addr add $HOTSPOT_IP/24 dev $WIFI_INTERFACE
+    # Remove any existing IP addresses
+    sudo ip addr flush dev "$WIFI_INTERFACE" 2>/dev/null || true
+    
+    # Configure the interface with static IP
+    if sudo ip addr add "$HOTSPOT_IP/24" dev "$WIFI_INTERFACE"; then
+        print_status "IP address $HOTSPOT_IP assigned to $WIFI_INTERFACE"
+    else
+        print_error "Failed to assign IP address to $WIFI_INTERFACE"
+        exit 1
+    fi
     
     # Bring up the interface
-    sudo ip link set $WIFI_INTERFACE up
-    
-    print_status "Network interface configured"
+    if sudo ip link set "$WIFI_INTERFACE" up; then
+        sleep 2
+        # Verify configuration
+        if ip addr show "$WIFI_INTERFACE" | grep -q "$HOTSPOT_IP"; then
+            print_status "✅ Network interface configured successfully: $HOTSPOT_IP"
+        else
+            print_error "❌ Failed to verify network interface configuration"
+            exit 1
+        fi
+    else
+        print_error "Failed to bring up interface $WIFI_INTERFACE"
+        exit 1
+    fi
 }
 
 # Function to configure IP forwarding
@@ -258,27 +385,49 @@ configure_ip_forwarding() {
     print_status "IP forwarding enabled"
 }
 
-# Function to start hotspot services
+# Enhanced function to start hotspot services
 start_hotspot_services() {
     print_status "Starting hotspot services..."
     
-    # Start hostapd
-    sudo hostapd /etc/hostapd/hostapd.conf -B &
-    show_spinner $! "Starting hostapd"
+    # Start hostapd with better error handling
+    print_status "Starting hostapd..."
+    if sudo hostapd /etc/hostapd/hostapd.conf -B; then
+        sleep 3  # Give hostapd more time to start
+        if pgrep hostapd > /dev/null; then
+            print_status "✅ hostapd started successfully"
+        else
+            print_error "❌ hostapd failed to start properly"
+            print_error "Check logs with: sudo journalctl -u hostapd -n 10"
+            return 1
+        fi
+    else
+        print_error "❌ Failed to start hostapd"
+        print_error "Try running: sudo hostapd /etc/hostapd/hostapd.conf -dd"
+        return 1
+    fi
     
-    # Start dnsmasq
-    sudo dnsmasq -C /etc/dnsmasq.conf &
-    show_spinner $! "Starting dnsmasq"
+    # Start dnsmasq with better error handling
+    print_status "Starting dnsmasq..."
+    if sudo dnsmasq -C /etc/dnsmasq.conf; then
+        sleep 2
+        if pgrep dnsmasq > /dev/null; then
+            print_status "✅ dnsmasq started successfully"
+        else
+            print_error "❌ dnsmasq failed to start properly"
+            return 1
+        fi
+    else
+        print_error "❌ Failed to start dnsmasq"
+        print_error "Check configuration with: sudo dnsmasq --test -C /etc/dnsmasq.conf"
+        return 1
+    fi
     
-    # Wait a moment for services to start
-    sleep 2
-    
-    # Check if services are running
+    # Final verification
     if pgrep hostapd > /dev/null && pgrep dnsmasq > /dev/null; then
-        print_status "Hotspot services started successfully"
+        print_status "✅ All hotspot services are running"
         return 0
     else
-        print_error "Failed to start hotspot services"
+        print_error "❌ One or more hotspot services failed to start"
         return 1
     fi
 }
@@ -348,6 +497,15 @@ display_connection_info() {
     echo "   1. The hotspot will start automatically on boot"
     echo "   2. Run './start_game_hub.sh' to start the Node.js server"
     echo "   3. Access the admin panel to create content"
+    echo ""
+    
+    echo -e "${YELLOW}🐛 Troubleshooting Tips:${NC}"
+    echo "   • If hotspot doesn't appear: Check 'sudo journalctl -u hostapd -n 10'"
+    echo "   • If devices can't connect: Verify WiFi adapter supports AP mode"
+    echo "   • If DNS doesn't work: Check 'sudo journalctl -u dnsmasq -n 10'"
+    echo "   • If RF-kill errors: Run 'sudo rfkill unblock all'"
+    echo "   • Interface issues: Check 'ip addr show $WIFI_INTERFACE'"
+    echo "   • For full diagnosis: Check system logs with 'dmesg | tail -20'"
     echo ""
 }
 
@@ -465,6 +623,9 @@ setup_hotspot() {
     
     # Set up cleanup trap
     trap cleanup EXIT
+    
+    # Fix RF-kill issues first
+    fix_rfkill_issues
     
     # Detect WiFi interface
     detect_wifi_interface
