@@ -14,6 +14,11 @@ let gameState = {
     answerEliminationPhase: 'initial' // initial, first-eliminated, second-eliminated, final-reveal, correct-reveal
 };
 
+// Auto-start timer variables
+let autoStartTimer = null;
+let autoStartTimeRemaining = 300; // 5 minutes in seconds
+let autoStartCountdownInterval = null;
+
 // Background Music Management
 let backgroundMusic = null;
 let isMusicPlaying = false;
@@ -68,6 +73,56 @@ function updateMusicToggleButton() {
     if (toggleButton) {
         toggleButton.textContent = isMusicPlaying ? '🔊 Music: ON' : '🔇 Music: OFF';
         toggleButton.style.background = isMusicPlaying ? '#28a745' : '#dc3545';
+    }
+}
+
+// Auto-start timer functions
+function startAutoStartTimer() {
+    console.log('⏰ Starting 5-minute auto-start timer');
+    autoStartTimeRemaining = 300; // Reset to 5 minutes
+    
+    const timerElement = document.getElementById('auto-start-timer');
+    const countdownElement = document.getElementById('auto-start-countdown');
+    
+    if (timerElement && countdownElement) {
+        timerElement.classList.add('active');
+        updateCountdownDisplay();
+        
+        autoStartCountdownInterval = setInterval(() => {
+            autoStartTimeRemaining--;
+            updateCountdownDisplay();
+            
+            if (autoStartTimeRemaining <= 0) {
+                clearAutoStartTimer();
+                console.log('⏰ Auto-start timer reached zero, starting game automatically');
+                startGameNow();
+            }
+        }, 1000);
+    }
+}
+
+function clearAutoStartTimer() {
+    console.log('⏰ Clearing auto-start timer');
+    
+    if (autoStartCountdownInterval) {
+        clearInterval(autoStartCountdownInterval);
+        autoStartCountdownInterval = null;
+    }
+    
+    const timerElement = document.getElementById('auto-start-timer');
+    if (timerElement) {
+        timerElement.classList.remove('active');
+    }
+    
+    autoStartTimeRemaining = 300; // Reset
+}
+
+function updateCountdownDisplay() {
+    const countdownElement = document.getElementById('auto-start-countdown');
+    if (countdownElement) {
+        const minutes = Math.floor(autoStartTimeRemaining / 60);
+        const seconds = autoStartTimeRemaining % 60;
+        countdownElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 }
 
@@ -267,6 +322,11 @@ function updateInstructionsDisplay() {
         // Enable start game button
         elements.startGameBtn.disabled = false;
         elements.startGameBtn.textContent = `🚀 Start Game (${playerCount} players)`;
+        
+        // Start auto-start timer if not already running
+        if (!autoStartCountdownInterval) {
+            startAutoStartTimer();
+        }
     } else {
         elements.step2.style.opacity = '0.5';
         elements.step2.classList.remove('completed');
@@ -276,17 +336,24 @@ function updateInstructionsDisplay() {
         // Disable start game button
         elements.startGameBtn.disabled = true;
         elements.startGameBtn.textContent = '🚀 Start Game Now';
+        
+        // Clear auto-start timer if no players
+        clearAutoStartTimer();
     }
 }
 
 // Go back to waiting screen
 function backToWaiting() {
+    clearAutoStartTimer(); // Clear the auto-start timer when going back
     showWaitingScreen();
 }
 
 // Start the actual game
 function startGameNow() {
     console.log('🚀 Starting game from instructions...');
+    
+    // Clear auto-start timer since we're starting manually
+    clearAutoStartTimer();
     
     // Start background music when game begins
     playBackgroundMusic();
@@ -300,6 +367,9 @@ function startGameNow() {
 
 // Show question display phase (10 seconds)
 function showQuestionDisplayPhase() {
+    // Clear auto-start timer since game has started
+    clearAutoStartTimer();
+    
     elements.waitingScreen.style.display = 'none';
     elements.instructionsScreen.style.display = 'none';
     elements.gameDisplay.style.display = 'block';
