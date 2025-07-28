@@ -369,25 +369,30 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
-            padding: 10px;
+            width: 100vw;
+            padding: 20px;
             background: linear-gradient(135deg, #1a1a1a, #333);
             box-sizing: border-box;
             overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
         }
 
         .instructions-container {
             background: #fff;
             border-radius: 12px;
-            padding: 20px;
-            max-width: 900px;
-            width: 100%;
-            height: 92vh;
+            padding: 30px;
+            max-width: 1200px;
+            width: 95%;
+            height: 90vh;
             overflow: hidden;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
             border: 2px solid #ddd;
             position: relative;
             display: flex;
             flex-direction: column;
+            margin: 0 auto;
         }
 
         .instructions-header {
@@ -743,14 +748,15 @@
         /* Mobile responsive */
         @media (max-width: 768px) {
             .instructions-screen {
-                padding: 5px;
+                padding: 10px;
             }
 
             .instructions-container {
-                padding: 15px 10px;
-                margin: 5px;
+                padding: 20px 15px;
+                margin: 0 auto;
                 max-width: 95%;
-                height: 98vh;
+                width: 95%;
+                height: 95vh;
             }
 
             .instructions-title {
@@ -927,9 +933,11 @@
 
         @media (max-width: 480px) {
             .instructions-container {
-                padding: 10px 8px;
-                margin: 2px;
-                height: 99vh;
+                padding: 15px 10px;
+                margin: 0 auto;
+                width: 98%;
+                max-width: 98%;
+                height: 96vh;
             }
 
             .instructions-title {
@@ -1021,24 +1029,8 @@
         <input id="volume-control" type="range" min="0" max="100" value="30" onchange="setMusicVolume(this.value)" style="width: 60px; margin-left: 5px;">
     </div>
 
-    <!-- Waiting Screen -->
-    <div class="waiting-screen" id="waiting-screen">
-        <div class="waiting-message">🎮 Multiplayer Trivia Game</div>
-        <div class="player-count" id="player-count-waiting">
-            Waiting for players... (0 connected)
-        </div>
-        <div class="admin-controls">
-            <button class="btn btn-primary" onclick="showInstructions()" id="start-btn">
-                🚀 Start Game
-            </button>
-            <button class="btn btn-secondary" onclick="resetGame()">
-                🔄 Reset Game
-            </button>
-        </div>
-    </div>
-
     <!-- Instructions Screen -->
-    <div class="instructions-screen" id="instructions-screen" style="display: none;">
+    <div class="instructions-screen" id="instructions-screen">
         <div class="instructions-container">
             <div class="instructions-header">
                 <h1 class="instructions-title">🎮 How to Join the Game</h1>

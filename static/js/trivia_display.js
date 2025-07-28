@@ -128,14 +128,9 @@ function updateCountdownDisplay() {
 
 // DOM Elements
 const elements = {
-    waitingScreen: document.getElementById('waiting-screen'),
     instructionsScreen: document.getElementById('instructions-screen'),
     gameDisplay: document.getElementById('game-display'),
     finalResults: document.getElementById('final-results'),
-    
-    // Waiting screen
-    playerCountWaiting: document.getElementById('player-count-waiting'),
-    startBtn: document.getElementById('start-btn'),
     
     // Instructions screen
     instructionPlayerCount: document.getElementById('instruction-player-count'),
@@ -226,7 +221,10 @@ function initializeSocket() {
     // Game control responses
     socket.on('game_start_response', function(response) {
         console.log('🚀 Game start response:', response);
-        if (!response.success) {
+        if (response.success) {
+            console.log('✅ Game started successfully!');
+        } else {
+            console.error('❌ Game start failed:', response);
             alert('Could not start game - already active or no players');
         }
     });
@@ -238,45 +236,61 @@ function initializeSocket() {
 
 // Update game state and UI
 function updateGameState(state) {
+    console.log('📡 updateGameState called with:', state);
     gameState = { ...gameState, ...state };
+    console.log('📊 Updated game state:', gameState);
+    
     updateUI();
     updateScoreboard();
     updateProgress();
     
     // Update instructions display if we're on that screen
-    if (elements.instructionsScreen.style.display === 'flex') {
+    // Check if instructions screen is visible (either display: flex or default visible)
+    if (elements.instructionsScreen.style.display !== 'none' && 
+        elements.gameDisplay.style.display !== 'block' &&
+        elements.finalResults.style.display !== 'flex') {
         updateInstructionsDisplay();
     }
 }
 
 // Update the main UI based on current phase
 function updateUI() {
+    console.log('🎨 updateUI called for phase:', gameState.currentPhase);
+    
     switch (gameState.currentPhase) {
         case 'waiting':
+            console.log('📋 Showing waiting screen (instructions)');
             showWaitingScreen();
             break;
         case 'question-display':
+            console.log('📖 Showing question display phase');
             showQuestionDisplayPhase();
             break;
         case 'answering':
+            console.log('⏰ Showing answering phase');
             showAnsweringPhase();
             break;
         case 'results':
+            console.log('📊 Results phase (handled by event)');
             // Results are handled by question_results event
             break;
         case 'leaderboard':
+            console.log('🏆 Leaderboard phase (handled by event)');
             // Leaderboard is handled by show_leaderboard event
             break;
         case 'finished':
+            console.log('🎉 Game finished (handled by event)');
             // Final results are handled by game_finished event
             break;
+        default:
+            console.warn('⚠️ Unknown game phase:', gameState.currentPhase);
     }
 }
 
-// Show waiting screen
+// Show waiting screen (now shows instructions instead)
 function showWaitingScreen() {
-    elements.waitingScreen.style.display = 'flex';
-    elements.instructionsScreen.style.display = 'none';
+    // Since we removed the waiting screen, show instructions screen instead
+    elements.instructionsScreen.style.display = 'block';
     elements.gameDisplay.style.display = 'none';
     elements.finalResults.style.display = 'none';
     
@@ -286,13 +300,13 @@ function showWaitingScreen() {
         interimLeaderboard.style.display = 'none';
     }
     
-    elements.playerCountWaiting.textContent = 
-        `Waiting for players... (${gameState.playerCount} connected)`;
+    // Update instructions display with current player count
+    updateInstructionsDisplay();
 }
 
 // Show instructions screen
 function showInstructions() {
-    elements.waitingScreen.style.display = 'none';
+    // Since we removed the waiting screen, just ensure instructions are visible
     elements.instructionsScreen.style.display = 'flex';
     elements.gameDisplay.style.display = 'none';
     elements.finalResults.style.display = 'none';
@@ -342,15 +356,17 @@ function updateInstructionsDisplay() {
     }
 }
 
-// Go back to waiting screen
+// Go back to waiting screen (now shows instructions)
 function backToWaiting() {
     clearAutoStartTimer(); // Clear the auto-start timer when going back
-    showWaitingScreen();
+    showWaitingScreen(); // This now shows the instructions screen
 }
 
 // Start the actual game
 function startGameNow() {
     console.log('🚀 Starting game from instructions...');
+    console.log('🔗 Socket connected:', socket && socket.connected);
+    console.log('👥 Current player count:', gameState.playerCount);
     
     // Clear auto-start timer since we're starting manually
     clearAutoStartTimer();
@@ -359,18 +375,23 @@ function startGameNow() {
     playBackgroundMusic();
     
     if (socket && socket.connected) {
+        console.log('📤 Emitting start_trivia_game event');
         socket.emit('start_trivia_game');
     } else {
+        console.error('❌ Socket not connected');
         alert('Not connected to server. Please refresh and try again.');
     }
 }
 
 // Show question display phase (10 seconds)
 function showQuestionDisplayPhase() {
+    console.log('🎯 showQuestionDisplayPhase called');
+    console.log('📋 Game state:', gameState);
+    
     // Clear auto-start timer since game has started
     clearAutoStartTimer();
     
-    elements.waitingScreen.style.display = 'none';
+    // Hide other screens and show game display
     elements.instructionsScreen.style.display = 'none';
     elements.gameDisplay.style.display = 'block';
     elements.finalResults.style.display = 'none';
@@ -382,12 +403,32 @@ function showQuestionDisplayPhase() {
     }
     
     // Show full-screen question
-    elements.fullscreenQuestionView.classList.add('active');
+    console.log('🖥️ Setting fullscreen question view active');
+    console.log('🔍 Elements check:', {
+        fullscreenQuestionView: !!elements.fullscreenQuestionView,
+        fullscreenQuestionText: !!elements.fullscreenQuestionText,
+        questionCountdown: !!elements.questionCountdown
+    });
+    
+    if (elements.fullscreenQuestionView) {
+        elements.fullscreenQuestionView.classList.add('active');
+        console.log('✅ Added active class to fullscreen view');
+    } else {
+        console.error('❌ fullscreenQuestionView element not found!');
+    }
+    
     elements.mainGameContent.style.display = 'none';
     
     if (gameState.currentQuestion) {
-        elements.fullscreenQuestionText.textContent = gameState.currentQuestion.question;
-        elements.questionCountdown.textContent = gameState.questionDisplayTimeRemaining;
+        console.log('📝 Setting question text:', gameState.currentQuestion.question);
+        if (elements.fullscreenQuestionText) {
+            elements.fullscreenQuestionText.textContent = gameState.currentQuestion.question;
+        }
+        if (elements.questionCountdown) {
+            elements.questionCountdown.textContent = gameState.questionDisplayTimeRemaining;
+        }
+    } else {
+        console.warn('⚠️ No current question in game state');
     }
 }
 
@@ -563,7 +604,6 @@ function showQuestionResults(results) {
 // Show interim leaderboard (every 5 questions)
 function showInterimLeaderboard(data) {
     // Hide other screens
-    elements.waitingScreen.style.display = 'none';
     elements.instructionsScreen.style.display = 'none';
     elements.gameDisplay.style.display = 'none';
     elements.finalResults.style.display = 'none';
@@ -613,7 +653,6 @@ function showFinalResults(data) {
     // Clear any ongoing timers
     // clearEliminationTimers(); // This function is removed, so this line is removed.
     
-    elements.waitingScreen.style.display = 'none';
     elements.instructionsScreen.style.display = 'none';
     elements.gameDisplay.style.display = 'none';
     
