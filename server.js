@@ -287,7 +287,7 @@ function startAnsweringPhase() {
         broadcastGameState();
         
         // Handle elimination at specific times
-        if (triviaGameState.timeRemaining === 30 || triviaGameState.timeRemaining === 20) {
+        if (triviaGameState.timeRemaining === 25 || triviaGameState.timeRemaining === 10) {
             eliminateWrongAnswer();
         }
         
