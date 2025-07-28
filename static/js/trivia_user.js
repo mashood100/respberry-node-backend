@@ -7,7 +7,8 @@ let playerData = {
     name: 'Player',
     score: 0,
     currentAnswer: null,
-    hasAnswered: false
+    hasAnswered: false,
+    currentQuestionScore: 0
 };
 
 let gameState = {
@@ -236,6 +237,7 @@ function updateGameState(state) {
     const myPlayer = state.players.find(p => p.sessionId === playerData.sessionId);
     if (myPlayer) {
         playerData.score = myPlayer.score;
+        playerData.currentQuestionScore = myPlayer.currentQuestionScore || 0;
         playerData.hasAnswered = !!myPlayer.currentAnswer;
         updatePlayerDisplay();
     }
@@ -429,6 +431,7 @@ function showAnswerSubmitted() {
 function resetAnswerState() {
     playerData.currentAnswer = null;
     playerData.hasAnswered = false;
+    playerData.currentQuestionScore = 0;
     
     // Reset eliminated answers array for new question
     gameState.eliminatedAnswers = [];
@@ -481,19 +484,22 @@ function showQuestionResults(results) {
     const myResult = results.playerResults.find(p => p.name === playerData.name);
     
     if (myResult) {
+        const questionScore = myResult.questionScore || 0;
+        
         if (myResult.isCorrect) {
             elements.resultMessage.className = 'result-message correct';
-            elements.resultMessage.textContent = '🎉 Correct!';
+            elements.resultMessage.textContent = `🎉 Correct! +${questionScore} points`;
         } else if (myResult.answer) {
             elements.resultMessage.className = 'result-message incorrect';
-            elements.resultMessage.textContent = '❌ Incorrect';
+            elements.resultMessage.textContent = '❌ Incorrect (+0 points)';
         } else {
             elements.resultMessage.className = 'result-message no-answer';
-            elements.resultMessage.textContent = '⏰ Time\'s Up!';
+            elements.resultMessage.textContent = '⏰ Time\'s Up! (+0 points)';
         }
         
         // Update score display
         playerData.score = myResult.score;
+        playerData.currentQuestionScore = 0; // Reset for next question
         updatePlayerDisplay();
     }
     
@@ -547,13 +553,14 @@ function showLeaderboard(data) {
             
             const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
             const isCurrentUser = player.sessionId === playerData.sessionId ? ' (You)' : '';
+            const maxPossibleScore = data.currentQuestion * 100; // Each question max 100 points
             
             leaderboardItem.innerHTML = `
                 <div class="user-rank-info">
                     <div class="user-rank-number">${rankEmoji}</div>
                     <div class="user-player-name">${player.name}${isCurrentUser}</div>
                 </div>
-                <div class="user-player-score">${player.score}/${data.currentQuestion}</div>
+                <div class="user-player-score">${player.score}/${maxPossibleScore}</div>
             `;
             
             elements.leaderboardUserContent.appendChild(leaderboardItem);
@@ -584,18 +591,29 @@ function showFinalResults(data) {
         }
         
         elements.finalResultMessage.textContent = resultText;
+        const maxPossibleTotal = data.totalQuestions * 100; // Each question max 100 points
         elements.finalScoreDisplay.textContent = 
-            `Your Final Score: ${myResult.score}/${data.totalQuestions}`;
+            `Your Final Score: ${myResult.score}/${maxPossibleTotal}`;
     } else {
         elements.finalResultMessage.textContent = '🏆 Game Complete!';
-        elements.finalScoreDisplay.textContent = `Your Final Score: ${playerData.score}/${data.totalQuestions}`;
+        const maxPossibleTotal = data.totalQuestions * 100; // Each question max 100 points
+        elements.finalScoreDisplay.textContent = `Your Final Score: ${playerData.score}/${maxPossibleTotal}`;
     }
 }
 
 // Update player display
 function updatePlayerDisplay() {
-    elements.playerName.textContent = playerData.name;
-    elements.yourScore.textContent = `Score: ${playerData.score}`;
+    // Hide player name during game to avoid blocking question text
+    if (gameState.currentPhase === 'answering' || gameState.currentPhase === 'question-display') {
+        elements.playerName.style.display = 'none';
+        elements.yourScore.style.display = 'none'; // Hide score section during game
+    } else {
+        elements.playerName.style.display = 'block';
+        elements.playerName.textContent = playerData.name;
+        elements.yourScore.style.display = 'block';
+        elements.yourScore.textContent = `Score: ${playerData.score}`;
+    }
+    
     updateNameEditor();
 }
 
@@ -626,7 +644,7 @@ function updateGameStatus() {
     let statusText = '';
     
     if (playerData.hasAnswered) {
-        statusText = `✅ Answer selected! You can still change it. Time remaining: ${gameState.timeRemaining}s`;
+        statusText = `✅ Answer submitted! You can still change it. Time remaining: ${gameState.timeRemaining}s`;
     } else {
         statusText = `Select your answer! Time remaining: ${gameState.timeRemaining}s`;
     }

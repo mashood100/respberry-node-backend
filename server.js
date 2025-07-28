@@ -154,6 +154,7 @@ function addPlayer(sessionId, deviceInfo) {
             score: 0,
             currentAnswer: null,
             answeredAt: null,
+            currentQuestionScore: 0,
             isConnected: true,
             deviceInfo: deviceInfo
         };
@@ -174,19 +175,38 @@ function removePlayer(sessionId) {
     }
 }
 
+// Calculate score based on correctness and time remaining
+function calculateScore(isCorrect, timeRemaining) {
+    if (!isCorrect) {
+        return 0; // Wrong or no answer = 0 points
+    }
+    
+    // Correct answer: 60 base points + time bonus (1 point per second remaining)
+    const baseScore = 60;
+    const timeBonus = Math.max(0, timeRemaining); // Ensure non-negative
+    return baseScore + timeBonus;
+}
+
 function updatePlayerAnswer(sessionId, answer) {
     const player = triviaGameState.players.get(sessionId);
     if (player && triviaGameState.currentPhase === 'answering') {
+        const previousAnswer = player.currentAnswer;
         player.currentAnswer = answer;
         player.answeredAt = Date.now();
         triviaGameState.currentAnswers.set(sessionId, answer);
-        console.log(`📝 ${player.name} answered: ${answer}`);
         
-        // Check if answer is correct and award points
+        // Calculate current score dynamically (for real-time display)
         const currentQuestion = triviaGameState.questions[triviaGameState.currentQuestionIndex];
-        if (answer === currentQuestion.correct) {
-            player.score += 1;
-            console.log(`🎉 ${player.name} got it right! Score: ${player.score}`);
+        const isCorrect = answer === currentQuestion.correct;
+        const currentScore = calculateScore(isCorrect, triviaGameState.timeRemaining);
+        
+        // Store the current score temporarily (this will be finalized when question ends)
+        player.currentQuestionScore = currentScore;
+        
+        if (previousAnswer && previousAnswer !== answer) {
+            console.log(`📝 ${player.name} changed answer from: ${previousAnswer} to: ${answer} (Score: ${currentScore})`);
+        } else {
+            console.log(`📝 ${player.name} answered: ${answer} (Score: ${currentScore})`);
         }
         
         broadcastGameState();
@@ -217,7 +237,10 @@ function getGameState() {
         timeRemaining: triviaGameState.timeRemaining,
         questionDisplayTimeRemaining: triviaGameState.questionDisplayTimeRemaining,
         currentQuestion: currentQuestion,
-        players: Array.from(triviaGameState.players.values()),
+        players: Array.from(triviaGameState.players.values()).map(player => ({
+            ...player,
+            currentQuestionScore: player.currentQuestionScore || 0 // Include current question score for real-time display
+        })),
         playerCount: triviaGameState.players.size,
         answeredCount: triviaGameState.currentAnswers.size
     };
@@ -284,6 +307,9 @@ function startAnsweringPhase() {
     
     triviaGameState.gameTimer = setInterval(() => {
         triviaGameState.timeRemaining--;
+        
+        // Don't recalculate scores every second - scores are locked when answered
+        // Only broadcast the updated time
         broadcastGameState();
         
         // Handle elimination at specific times
@@ -323,17 +349,39 @@ function endQuestion() {
     console.log('🏁 Question ended, showing results');
     triviaGameState.currentPhase = 'results';
     
-    // Calculate and broadcast results
+    // Prepare results with current question scores before resetting them
     const currentQuestion = triviaGameState.questions[triviaGameState.currentQuestionIndex];
-    const results = {
-        correctAnswer: currentQuestion.correct,
-        playerResults: Array.from(triviaGameState.players.values()).map(player => ({
+    const playerResults = [];
+    
+    triviaGameState.players.forEach(player => {
+        const questionScore = player.currentQuestionScore || 0;
+        
+        if (player.currentAnswer) {
+            // Add the current question score to total score
+            player.score += questionScore;
+            console.log(`📊 ${player.name}: +${questionScore} points (Total: ${player.score})`);
+        } else {
+            console.log(`📊 ${player.name}: No answer, +0 points (Total: ${player.score})`);
+        }
+        
+        // Store result data before resetting
+        playerResults.push({
             name: player.name,
             answer: player.currentAnswer,
             isCorrect: player.currentAnswer === currentQuestion.correct,
             score: player.score,
-            answeredAt: player.answeredAt
-        }))
+            answeredAt: player.answeredAt,
+            questionScore: questionScore // Store the actual score earned this question
+        });
+        
+        // Reset current question score
+        player.currentQuestionScore = 0;
+    });
+    
+    // Calculate and broadcast results
+    const results = {
+        correctAnswer: currentQuestion.correct,
+        playerResults: playerResults
     };
     
     io.emit('question_results', results);
@@ -367,6 +415,7 @@ function prepareNextQuestion() {
     triviaGameState.players.forEach(player => {
         player.currentAnswer = null;
         player.answeredAt = null;
+        player.currentQuestionScore = 0; // Reset score for new question
     });
     startQuestionDisplayPhase();
 }
