@@ -15,6 +15,28 @@ const GAME_CONFIG = {
 let backgroundMusic = null;
 let isMusicPlaying = false;
 
+// Questions Management
+let triviaQuestions = [];
+
+// Load questions from JSON file
+async function loadTriviaQuestions() {
+    try {
+        const response = await fetch('/static/game/trivia_questions.json');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        triviaQuestions = data.questions;
+        console.log('Successfully loaded', triviaQuestions.length, 'questions');
+        
+        // After loading questions, initialize the game
+        initializeTrivia();
+    } catch (error) {
+        console.error('Error loading trivia questions:', error);
+        updateGameStatus('❌ Error loading questions. Please refresh the page.');
+    }
+}
+
 function initializeBackgroundMusic() {
     backgroundMusic = document.getElementById('background-music');
     if (backgroundMusic) {
@@ -67,50 +89,6 @@ function updateMusicToggleButton() {
         toggleButton.style.background = isMusicPlaying ? '#28a745' : '#dc3545';
     }
 }
-
-// Sample trivia questions with enhanced structure
-const triviaQuestions = [
-    {
-        question: "What is the capital city of France?",
-        correct: { text: "Paris" },
-        wrong: ["London", "Berlin", "Madrid"]
-    },
-    {
-        question: "Which planet is known as the Red Planet?",
-        correct: { text: "Mars" },
-        wrong: ["Venus", "Jupiter", "Saturn"]
-    },
-    {
-        question: "What is the largest mammal in the world?",
-        correct: { text: "Blue Whale" },
-        wrong: ["African Elephant", "Giraffe", "Sperm Whale"]
-    },
-    {
-        question: "In which year did World War II end?",
-        correct: { text: "1945" },
-        wrong: ["1943", "1944", "1946"]
-    },
-    {
-        question: "What is the chemical symbol for gold?",
-        correct: { text: "Au" },
-        wrong: ["Go", "Gd", "Ag"]
-    },
-    {
-        question: "Who painted the Mona Lisa?",
-        correct: { text: "Leonardo da Vinci" },
-        wrong: ["Pablo Picasso", "Vincent van Gogh", "Michelangelo"]
-    },
-    {
-        question: "What is the smallest country in the world?",
-        correct: { text: "Vatican City" },
-        wrong: ["Monaco", "San Marino", "Liechtenstein"]
-    },
-    {
-        question: "Which element has the atomic number 1?",
-        correct: { text: "Hydrogen" },
-        wrong: ["Helium", "Oxygen", "Carbon"]
-    }
-];
 
 // Game State Management
 let gameState = {
@@ -657,7 +635,7 @@ function initializeTrivia() {
 }
 
 // Page Load Event
-window.addEventListener('load', initializeTrivia);
+window.addEventListener('load', loadTriviaQuestions);
 
 // Visibility Change Handling
 document.addEventListener('visibilitychange', () => {

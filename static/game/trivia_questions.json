@@ -1,0 +1,44 @@
+{
+    "questions": [
+        {
+            "question": "What is the capital city of France?",
+            "correct": { "text": "Paris" },
+            "wrong": ["London", "Berlin", "Madrid"]
+        },
+        {
+            "question": "Which planet is known as the Red Planet?",
+            "correct": { "text": "Mars" },
+            "wrong": ["Venus", "Jupiter", "Saturn"]
+        },
+        {
+            "question": "What is the largest mammal in the world?",
+            "correct": { "text": "Blue Whale" },
+            "wrong": ["African Elephant", "Giraffe", "Sperm Whale"]
+        },
+        {
+            "question": "In which year did World War II end?",
+            "correct": { "text": "1945" },
+            "wrong": ["1943", "1944", "1946"]
+        },
+        {
+            "question": "What is the chemical symbol for gold?",
+            "correct": { "text": "Au" },
+            "wrong": ["Go", "Gd", "Ag"]
+        },
+        {
+            "question": "Who painted the Mona Lisa?",
+            "correct": { "text": "Leonardo da Vinci" },
+            "wrong": ["Pablo Picasso", "Vincent van Gogh", "Michelangelo"]
+        },
+        {
+            "question": "What is the smallest country in the world?",
+            "correct": { "text": "Vatican City" },
+            "wrong": ["Monaco", "San Marino", "Liechtenstein"]
+        },
+        {
+            "question": "Which element has the atomic number 1?",
+            "correct": { "text": "Hydrogen" },
+            "wrong": ["Helium", "Oxygen", "Carbon"]
+        }
+    ]
+} 
