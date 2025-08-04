@@ -1014,6 +1014,324 @@ app.get('/api/stats/', (req, res) => {
     }
 });
 
+// File System API endpoints for game setup
+const os = require('os');
+
+// Get available storage devices/drives
+app.get('/api/filesystem/drives/', (req, res) => {
+    try {
+        const drives = [];
+        
+        if (process.platform === 'win32') {
+            // Windows - enumerate drive letters
+            for (let i = 65; i <= 90; i++) { // A-Z
+                const driveLetter = String.fromCharCode(i) + ':';
+                const drivePath = driveLetter + '\\';
+                try {
+                    if (fs.existsSync(drivePath)) {
+                        const stats = fs.statSync(drivePath);
+                        drives.push({
+                            name: driveLetter,
+                            path: drivePath,
+                            type: 'drive',
+                            size: null // Could add size detection later
+                        });
+                    }
+                } catch (err) {
+                    // Drive not accessible, skip
+                }
+            }
+        } else {
+            // Unix-like systems (Linux, macOS, Raspberry Pi)
+            drives.push({
+                name: 'Root (/)',
+                path: '/',
+                type: 'drive',
+                size: null
+            });
+            
+            // Add common mount points
+            const commonMounts = ['/home', '/Users', '/mnt', '/media', '/Volumes'];
+            commonMounts.forEach(mountPath => {
+                try {
+                    if (fs.existsSync(mountPath)) {
+                        const items = fs.readdirSync(mountPath);
+                        items.forEach(item => {
+                            const fullPath = path.join(mountPath, item);
+                            try {
+                                const stats = fs.statSync(fullPath);
+                                if (stats.isDirectory()) {
+                                    drives.push({
+                                        name: `${item} (${mountPath})`,
+                                        path: fullPath,
+                                        type: 'mount',
+                                        size: null
+                                    });
+                                }
+                            } catch (err) {
+                                // Skip inaccessible directories
+                            }
+                        });
+                    }
+                } catch (err) {
+                    // Mount point doesn't exist or not accessible
+                }
+            });
+        }
+        
+        res.json({
+            success: true,
+            drives: drives
+        });
+    } catch (error) {
+        console.error('Error getting drives:', error);
+        res.json({
+            success: false,
+            message: error.message,
+            drives: []
+        });
+    }
+});
+
+// Browse folders in a given path
+app.post('/api/filesystem/browse/', (req, res) => {
+    try {
+        const { folderPath } = req.body;
+        
+        if (!folderPath) {
+            return res.json({
+                success: false,
+                message: 'Folder path is required'
+            });
+        }
+        
+        // Security check - prevent access to sensitive system directories
+        const normalizedPath = path.normalize(folderPath);
+        const blacklistedPaths = [
+            '/etc', '/sys', '/proc', '/dev', '/boot',
+            'C:\\Windows\\System32', 'C:\\Windows\\system32',
+            'C:\\Program Files', 'C:\\Program Files (x86)'
+        ];
+        
+        const isBlacklisted = blacklistedPaths.some(blacklisted => 
+            normalizedPath.startsWith(blacklisted)
+        );
+        
+        if (isBlacklisted) {
+            return res.json({
+                success: false,
+                message: 'Access to this directory is not allowed for security reasons'
+            });
+        }
+        
+        if (!fs.existsSync(normalizedPath)) {
+            return res.json({
+                success: false,
+                message: 'Path does not exist'
+            });
+        }
+        
+        const items = fs.readdirSync(normalizedPath);
+        const folders = [];
+        
+        items.forEach(item => {
+            try {
+                const fullPath = path.join(normalizedPath, item);
+                const stats = fs.statSync(fullPath);
+                
+                if (stats.isDirectory()) {
+                    folders.push({
+                        name: item,
+                        path: fullPath,
+                        isDirectory: true,
+                        size: null,
+                        modified: stats.mtime
+                    });
+                }
+            } catch (err) {
+                // Skip inaccessible items
+            }
+        });
+        
+        // Sort folders alphabetically
+        folders.sort((a, b) => a.name.localeCompare(b.name));
+        
+        res.json({
+            success: true,
+            currentPath: normalizedPath,
+            folders: folders
+        });
+    } catch (error) {
+        console.error('Error browsing folders:', error);
+        res.json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Check for specific folder and handle replacement
+app.post('/api/filesystem/setup-game/', (req, res) => {
+    try {
+        const { targetPath, folderName = 'GameHub-Setup' } = req.body; // Default folder name, can be customized
+        
+        if (!targetPath) {
+            return res.json({
+                success: false,
+                message: 'Target path is required'
+            });
+        }
+        
+        const normalizedPath = path.normalize(targetPath);
+        const gameFolder = path.join(normalizedPath, folderName);
+        
+        // Check if the folder exists
+        const folderExists = fs.existsSync(gameFolder);
+        
+        if (folderExists) {
+            // Backup existing folder
+            const backupFolder = path.join(normalizedPath, `${folderName}_backup_${Date.now()}`);
+            try {
+                fs.renameSync(gameFolder, backupFolder);
+                console.log(`Backed up existing folder to: ${backupFolder}`);
+            } catch (err) {
+                return res.json({
+                    success: false,
+                    message: `Failed to backup existing folder: ${err.message}`
+                });
+            }
+        }
+        
+        // Create new game folder
+        try {
+            fs.mkdirSync(gameFolder, { recursive: true });
+            
+            // Create initial game structure (you can customize this)
+            const gameStructure = [
+                'config',
+                'assets',
+                'questions',
+                'logs'
+            ];
+            
+            gameStructure.forEach(subFolder => {
+                const subFolderPath = path.join(gameFolder, subFolder);
+                fs.mkdirSync(subFolderPath, { recursive: true });
+            });
+            
+            // Create a sample config file
+            const configContent = {
+                version: "1.0.0",
+                created: new Date().toISOString(),
+                gameType: "trivia",
+                settings: {
+                    maxPlayers: 50,
+                    questionTime: 30,
+                    autoStart: false
+                }
+            };
+            
+            fs.writeFileSync(
+                path.join(gameFolder, 'config', 'game-config.json'),
+                JSON.stringify(configContent, null, 2)
+            );
+            
+            res.json({
+                success: true,
+                message: `Game setup completed successfully at: ${gameFolder}`,
+                details: {
+                    folderCreated: gameFolder,
+                    folderExisted: folderExists,
+                    backupCreated: folderExists ? `${folderName}_backup_${Date.now()}` : null
+                }
+            });
+            
+        } catch (err) {
+            res.json({
+                success: false,
+                message: `Failed to create game folder: ${err.message}`
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error setting up game:', error);
+        res.json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Simple API to replace trivia_game folder
+app.post('/api/replace-trivia-folder/', (req, res) => {
+    try {
+        const triviaGamePath = path.join(__dirname, 'static', 'trivia_game');
+        
+        // Check if the folder exists
+        const folderExists = fs.existsSync(triviaGamePath);
+        
+        if (folderExists) {
+            // Remove existing folder
+            try {
+                fs.rmSync(triviaGamePath, { recursive: true, force: true });
+                console.log('Removed existing trivia_game folder');
+            } catch (err) {
+                return res.json({
+                    success: false,
+                    message: `Failed to remove existing folder: ${err.message}`
+                });
+            }
+        }
+        
+        // Create new trivia_game folder
+        try {
+            fs.mkdirSync(triviaGamePath, { recursive: true });
+            
+            // Create a new trivia_questions.json file
+            const newQuestions = [
+                {
+                    "question": "What is the capital of France?",
+                    "options": ["London", "Berlin", "Paris", "Madrid"],
+                    "correct": 2
+                },
+                {
+                    "question": "Which planet is known as the Red Planet?",
+                    "options": ["Venus", "Mars", "Jupiter", "Saturn"],
+                    "correct": 1
+                }
+            ];
+            
+            fs.writeFileSync(
+                path.join(triviaGamePath, 'trivia_questions.json'),
+                JSON.stringify(newQuestions, null, 2)
+            );
+            
+            res.json({
+                success: true,
+                message: `Trivia game folder replaced successfully at: ${triviaGamePath}`,
+                details: {
+                    folderPath: triviaGamePath,
+                    folderExisted: folderExists,
+                    filesCreated: ['trivia_questions.json']
+                }
+            });
+            
+        } catch (err) {
+            res.json({
+                success: false,
+                message: `Failed to create new folder: ${err.message}`
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error replacing trivia folder:', error);
+        res.json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // WebSocket handling with enhanced debugging and multiplayer trivia
 io.on('connection', (socket) => {
     console.log('🔗 Client connected:', socket.id, '| Total clients:', io.engine.clientsCount);

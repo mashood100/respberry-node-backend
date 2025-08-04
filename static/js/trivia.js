@@ -21,7 +21,7 @@ let triviaQuestions = [];
 // Load questions from JSON file
 async function loadTriviaQuestions() {
     try {
-        const response = await fetch('/static/game/trivia_questions.json');
+        const response = await fetch('/static/trivia_game/trivia_questions.json');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }

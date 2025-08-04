@@ -1012,6 +1012,278 @@
                 font-size: 1.1em;
             }
         }
+
+        /* Settings Button Styles */
+        .settings-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #6c757d, #5a6268);
+            border: 3px solid #000;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 200;
+            transition: all 0.3s ease;
+            font-size: 1.5em;
+            color: #FFF;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .settings-button:hover {
+            transform: translateY(-2px) rotate(90deg);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(45deg, #5a6268, #495057);
+        }
+
+        /* Settings Modal Styles */
+        .settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .settings-modal.active {
+            display: flex;
+        }
+
+        .settings-content {
+            background: #fff;
+            border: 4px solid #000;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+            animation: modalSlideIn 0.4s ease-out;
+        }
+
+        .settings-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #000;
+            padding-bottom: 20px;
+        }
+
+        .settings-title {
+            font-size: 2.2em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #000;
+            margin: 0;
+            background: linear-gradient(45deg, #FFD700, #FFF700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .settings-subtitle {
+            font-size: 1.1em;
+            color: #666;
+            margin: 10px 0 0 0;
+            font-weight: 600;
+        }
+
+        .settings-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: #dc3545;
+            border: 2px solid #000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2em;
+            color: #FFF;
+            font-weight: 900;
+            transition: all 0.3s ease;
+        }
+
+        .settings-close:hover {
+            background: #c82333;
+            transform: scale(1.1);
+        }
+
+        .settings-section {
+            margin-bottom: 30px;
+        }
+
+        .settings-section-title {
+            font-size: 1.4em;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            color: #333;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .settings-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .settings-btn {
+            padding: 15px 30px;
+            border: 3px solid #000;
+            border-radius: 12px;
+            font-weight: 900;
+            font-size: 1.1em;
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            min-width: 200px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .settings-btn:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .settings-btn:hover:before {
+            left: 100%;
+        }
+
+        .settings-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .settings-btn-primary {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            border-color: #004085;
+        }
+
+        .settings-btn-primary:hover {
+            background: linear-gradient(45deg, #0056b3, #004085);
+        }
+
+        .settings-btn-secondary {
+            background: linear-gradient(45deg, #6c757d, #5a6268);
+            color: white;
+            border-color: #495057;
+        }
+
+        .settings-btn-secondary:hover {
+            background: linear-gradient(45deg, #5a6268, #495057);
+        }
+
+        .settings-btn-success {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+            color: white;
+            border-color: #155724;
+        }
+
+        .settings-btn-success:hover {
+            background: linear-gradient(45deg, #1e7e34, #155724);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Mobile responsive for settings */
+        @media (max-width: 768px) {
+            .settings-button {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3em;
+                top: 15px;
+                right: 15px;
+            }
+
+            .settings-content {
+                padding: 25px 20px;
+                width: 95%;
+                margin: 10px;
+            }
+
+            .settings-title {
+                font-size: 1.8em;
+            }
+
+            .settings-subtitle {
+                font-size: 1em;
+            }
+
+            .settings-btn {
+                padding: 12px 25px;
+                font-size: 1em;
+                min-width: 180px;
+            }
+
+            .settings-section-title {
+                font-size: 1.2em;
+                padding: 8px 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .settings-content {
+                padding: 20px 15px;
+                width: 98%;
+            }
+
+            .settings-title {
+                font-size: 1.5em;
+            }
+
+            .settings-btn {
+                padding: 10px 20px;
+                font-size: 0.9em;
+                min-width: 160px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1027,6 +1299,34 @@
             🔊 Music: ON
         </button>
         <input id="volume-control" type="range" min="0" max="100" value="30" onchange="setMusicVolume(this.value)" style="width: 60px; margin-left: 5px;">
+    </div>
+
+    <!-- Settings Button (only visible on instructions screen) -->
+    <div class="settings-button" id="settings-button" onclick="openSettingsModal()" title="Game Settings">
+        ⚙️
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settings-modal">
+        <div class="settings-content">
+            <div class="settings-close" onclick="closeSettingsModal()" title="Close Settings">
+                ✕
+            </div>
+            
+            <div class="settings-header">
+                <h2 class="settings-title">⚙️ Game Settings</h2>
+                <p class="settings-subtitle">Configure your trivia game experience</p>
+            </div>
+
+            <div class="settings-section">
+                <h3 class="settings-section-title">🎮 Game Management</h3>
+                <div class="settings-actions">
+                    <button class="settings-btn settings-btn-primary" onclick="setupNewGameAdvanced()">
+                         Setup New Game
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Instructions Screen -->
@@ -1232,5 +1532,90 @@
     </div>
 
     <script src="/static/js/trivia_display.js"></script>
+    <script src="/static/js/filesystem-setup.js"></script>
+    <script>
+        // Settings Modal Functions
+        function openSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.remove('active');
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+
+        function setupNewGame() {
+            // Placeholder function - functionality to be added later
+            alert('Setup New Game functionality will be implemented soon!');
+            closeSettingsModal();
+        }
+
+        // setupNewGameAdvanced is implemented in filesystem-setup.js
+
+        // Close modal when clicking outside the content
+        document.getElementById('settings-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSettingsModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeSettingsModal();
+            }
+        });
+
+        // Show/hide settings button based on current screen
+        function updateSettingsButtonVisibility() {
+            const settingsButton = document.getElementById('settings-button');
+            const instructionsScreen = document.getElementById('instructions-screen');
+            const gameDisplay = document.getElementById('game-display');
+            const interimLeaderboard = document.getElementById('interim-leaderboard');
+            const finalResults = document.getElementById('final-results');
+
+            // Show settings button only on instructions screen
+            if (instructionsScreen && instructionsScreen.style.display !== 'none') {
+                settingsButton.style.display = 'flex';
+            } else {
+                settingsButton.style.display = 'none';
+            }
+        }
+
+        // Initialize settings button visibility on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSettingsButtonVisibility();
+            
+            // Create a MutationObserver to watch for style changes on screen elements
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                        updateSettingsButtonVisibility();
+                    }
+                });
+            });
+
+            // Observe style changes on all screen elements
+            const screensToObserve = [
+                'instructions-screen',
+                'game-display', 
+                'interim-leaderboard',
+                'final-results'
+            ];
+
+            screensToObserve.forEach(screenId => {
+                const element = document.getElementById(screenId);
+                if (element) {
+                    observer.observe(element, { 
+                        attributes: true, 
+                        attributeFilter: ['style'] 
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 </html> 
