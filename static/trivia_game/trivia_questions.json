@@ -1,45 +1,79 @@
 {
     "questions": [
         {
-            "question": "Which European city is famous for the Eiffel Tower?",
-            "correct": { "text": "Paris" },
-            "wrong": ["London", "Berlin", "Madrid"]
+            "question": "Which metal is liquid at room temperature?",
+            "correct": { "text": "Mercury" },
+            "wrong": ["Lead", "Aluminum", "Copper"]
         },
         {
-            "question": "Which planet is the fourth from the Sun?",
-            "correct": { "text": "Mars" },
-            "wrong": ["Venus", "Jupiter", "Saturn"]
+            "question": "Which country invented paper?",
+            "correct": { "text": "China" },
+            "wrong": ["Egypt", "India", "Greece"]
         },
         {
-            "question": "Which marine animal holds the record for largest size?",
-            "correct": { "text": "Blue Whale" },
-            "wrong": ["African Elephant", "Giraffe", "Sperm Whale"]
+            "question": "What is the capital of Canada?",
+            "correct": { "text": "Ottawa" },
+            "wrong": ["Toronto", "Vancouver", "Montreal"]
         },
         {
-            "question": "Which year marks the official end of the Second World War?",
-            "correct": { "text": "1945" },
-            "wrong": ["1943", "1944", "1946"]
+            "question": "Which is the fastest land animal?",
+            "correct": { "text": "Cheetah" },
+            "wrong": ["Lion", "Horse", "Leopard"]
         },
         {
-            "question": "What is the periodic table symbol for the precious metal gold?",
-            "correct": { "text": "Au" },
-            "wrong": ["Go", "Gd", "Ag"]
+            "question": "Which language has the most native speakers?",
+            "correct": { "text": "Mandarin Chinese" },
+            "wrong": ["English", "Spanish", "Hindi"]
         },
         {
-            "question": "Who created the famous artwork called The Last Supper?",
-            "correct": { "text": "Leonardo da Vinci" },
-            "wrong": ["Pablo Picasso", "Vincent van Gogh", "Michelangelo"]
+            "question": "Which planet has the most moons?",
+            "correct": { "text": "Saturn" },
+            "wrong": ["Jupiter", "Mars", "Neptune"]
         },
         {
-            "question": "Which country is the smallest independent state on Earth?",
-            "correct": { "text": "Vatican City" },
-            "wrong": ["Monaco", "San Marino", "Liechtenstein"]
+            "question": "What is the boiling point of water in Celsius?",
+            "correct": { "text": "100°C" },
+            "wrong": ["90°C", "80°C", "120°C"]
         },
         {
-            "question": "Which gas is the first element in the periodic table?",
-            "correct": { "text": "Hydrogen" },
-            "wrong": ["Helium", "Oxygen", "Carbon"]
+            "question": "Which organ in the human body produces insulin?",
+            "correct": { "text": "Pancreas" },
+            "wrong": ["Liver", "Kidney", "Stomach"]
+        },
+        {
+            "question": "Which is the tallest mountain in the world?",
+            "correct": { "text": "Mount Everest" },
+            "wrong": ["K2", "Kangchenjunga", "Makalu"]
+        },
+        {
+            "question": "What is the main gas found in Earth's atmosphere?",
+            "correct": { "text": "Nitrogen" },
+            "wrong": ["Oxygen", "Carbon Dioxide", "Helium"]
+        },
+        {
+            "question": "Which sea creature has three hearts?",
+            "correct": { "text": "Octopus" },
+            "wrong": ["Shark", "Dolphin", "Squid"]
+        },
+        {
+            "question": "Which country is home to the kangaroo?",
+            "correct": { "text": "Australia" },
+            "wrong": ["New Zealand", "South Africa", "Brazil"]
+        },
+        {
+            "question": "What is the largest internal organ in the human body?",
+            "correct": { "text": "Liver" },
+            "wrong": ["Heart", "Lungs", "Kidneys"]
+        },
+        {
+            "question": "Which element is needed for breathing?",
+            "correct": { "text": "Oxygen" },
+            "wrong": ["Nitrogen", "Carbon", "Hydrogen"]
+        },
+        {
+            "question": "What is the hardest natural substance on Earth?",
+            "correct": { "text": "Diamond" },
+            "wrong": ["Gold", "Steel", "Quartz"]
         }
     ]
 }
-

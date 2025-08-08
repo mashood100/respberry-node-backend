@@ -14,30 +14,13 @@ async function setupNewGameAdvanced() {
             </div>
             
             <div class="settings-section">
-                <h3 class="settings-section-title">Quick Replace (Recommended)</h3>
+                <h3 class="settings-section-title">Select Game Folder Location</h3>
                 <div style="background: #e8f5e8; border: 2px solid #28a745; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                    <p style="margin: 0 0 10px 0; color: #155724;"><strong>🚀 Fast Option:</strong> Replace the current trivia_game folder</p>
+                    <p style="margin: 0 0 10px 0; color: #155724;"><strong>📁 Load Game Folder:</strong> Browse and select a trivia game folder</p>
                     <ul style="margin: 5px 0; padding-left: 20px; color: #155724; font-size: 0.9em;">
-                        <li>Removes <code>static/trivia_game</code> folder</li>
-                        <li>Creates new folder with fresh questions</li>
-                        <li>No file browsing needed</li>
-                    </ul>
-                </div>
-                <div class="settings-actions">
-                    <button class="settings-btn settings-btn-success" onclick="showQuickReplaceConfirmation()">
-                        ⚡ Quick Replace
-                    </button>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h3 class="settings-section-title">Custom Location (Advanced)</h3>
-                <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                    <p style="margin: 0 0 10px 0; color: #856404;"><strong>📁 Custom Option:</strong> Choose where to create trivia folder</p>
-                    <ul style="margin: 5px 0; padding-left: 20px; color: #856404; font-size: 0.9em;">
                         <li>Browse your Raspberry Pi filesystem</li>
                         <li>Select USB drives or custom locations</li>
-                        <li>Perfect for external storage</li>
+                        <li>Load existing trivia_game folders</li>
                     </ul>
                 </div>
                 <div class="settings-actions">
@@ -53,39 +36,16 @@ async function setupNewGameAdvanced() {
     }
 }
 
-function showQuickReplaceConfirmation() {
-    const settingsContent = document.querySelector('.settings-content');
-    settingsContent.innerHTML = `
-        <div class="settings-close" onclick="closeSettingsModal()" title="Close Settings">
-            ✕
-        </div>
-        <div class="settings-header">
-            <h2 class="settings-title">⚠️ Confirm Quick Replace</h2>
-            <p class="settings-subtitle">This will replace the current trivia_game folder</p>
-        </div>
-        
-        <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 10px; padding: 20px; margin: 20px 0;">
-            <h4 style="margin: 0 0 10px 0; color: #856404;">📋 What will happen:</h4>
-            <ul style="margin: 5px 0; padding-left: 20px; color: #856404;">
-                <li>Current <code>static/trivia_game</code> folder will be removed</li>
-                <li>A new trivia_game folder will be created</li>
-                <li>New trivia_questions.json file will be generated</li>
-            </ul>
-        </div>
 
-        <div class="settings-actions">
-            <button class="settings-btn settings-btn-secondary" onclick="setupNewGameAdvanced()">
-                ← Back to Options
-            </button>
-            <button class="settings-btn settings-btn-success" onclick="executeReplaceTriviaFolder()">
-                🚀 Replace Folder
-            </button>
-        </div>
-    `;
-}
 
 async function executeReplaceTriviaFolder(sourcePath) {
     const settingsContent = document.querySelector('.settings-content');
+    
+    // Ensure sourcePath is provided
+    if (!sourcePath) {
+        showError('No source path provided for trivia folder replacement');
+        return;
+    }
     
     // Show processing state
     settingsContent.innerHTML = `
@@ -93,7 +53,7 @@ async function executeReplaceTriviaFolder(sourcePath) {
             ✕
         </div>
         <div class="settings-header">
-            <h2 class="settings-title">⚙️ Replacing Trivia Folder</h2>
+            <h2 class="settings-title">⚙️ Loading Trivia Folder</h2>
             <p class="settings-subtitle">Please wait...</p>
         </div>
         <div style="text-align: center; padding: 40px;">
@@ -109,18 +69,10 @@ async function executeReplaceTriviaFolder(sourcePath) {
     `;
 
     try {
-        const requestBody = {};
-        
-        if (sourcePath) {
-            // Copy from selected folder to project folder
-            requestBody.sourcePath = sourcePath;
-        }
-        // If no sourcePath, it will use the default behavior (quick replace)
-        
         const response = await fetch('/api/replace-trivia-folder/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({ sourcePath: sourcePath })
         });
 
         const data = await response.json();
@@ -163,7 +115,7 @@ function showReplaceSuccess(message, details) {
 
         <div class="settings-actions">
             <button class="settings-btn settings-btn-primary" onclick="setupNewGameAdvanced()">
-                🔄 Replace Again
+                🔄 Load Another Folder
             </button>
             <button class="settings-btn settings-btn-success" onclick="closeSettingsModal()">
                 ✅ Done

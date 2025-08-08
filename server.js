@@ -1314,6 +1314,9 @@ app.post('/api/replace-trivia-folder/', (req, res) => {
                     const copiedItems = fs.readdirSync(triviaGamePath);
                     console.log(`Successfully copied items:`, copiedItems);
                     
+                    // Reload questions immediately after copying new data
+                    reloadTriviaQuestions();
+                    
                     res.json({
                         success: true,
                         message: `Trivia game folder replaced with contents from: ${sourcePath}`,
@@ -1370,6 +1373,9 @@ app.post('/api/replace-trivia-folder/', (req, res) => {
                     }
                     
                     console.log(`Successfully created new trivia_questions.json at: ${questionsFilePath}`);
+                    
+                    // Reload questions immediately after creating new data
+                    reloadTriviaQuestions();
                     
                     res.json({
                         success: true,
