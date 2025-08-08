@@ -732,9 +732,79 @@ show_status() {
     echo ""
 }
 
+# Function to check if hotspot is already running
+check_hotspot_running() {
+    print_status "Checking if hotspot is already running..."
+    
+    local hotspot_running=false
+    local services_found=""
+    
+    # Check if hostapd is running
+    if pgrep hostapd > /dev/null; then
+        hotspot_running=true
+        services_found="hostapd "
+        print_warning "Found running hostapd process"
+    fi
+    
+    # Check if dnsmasq is running
+    if pgrep dnsmasq > /dev/null; then
+        hotspot_running=true
+        services_found="${services_found}dnsmasq "
+        print_warning "Found running dnsmasq process"
+    fi
+    
+    # Check if systemd service is active
+    if systemctl is-active --quiet gamehub-hotspot 2>/dev/null; then
+        hotspot_running=true
+        services_found="${services_found}systemd-service "
+        print_warning "Found active gamehub-hotspot systemd service"
+    fi
+    
+    # Check if interface is already configured with hotspot IP
+    if ip addr show 2>/dev/null | grep -q "$HOTSPOT_IP"; then
+        hotspot_running=true
+        services_found="${services_found}interface-configured "
+        print_warning "Found interface already configured with hotspot IP $HOTSPOT_IP"
+    fi
+    
+    if [ "$hotspot_running" = true ]; then
+        print_warning "Hotspot appears to be running (services: $services_found)"
+        print_status "Stopping existing hotspot before restarting..."
+        
+        # Stop the existing hotspot
+        stop_hotspot
+        
+        # Give services time to fully shutdown
+        sleep 3
+        
+        # Verify everything is stopped
+        local still_running=""
+        if pgrep hostapd > /dev/null; then
+            still_running="${still_running}hostapd "
+        fi
+        if pgrep dnsmasq > /dev/null; then
+            still_running="${still_running}dnsmasq "
+        fi
+        
+        if [ -n "$still_running" ]; then
+            print_warning "Some services still running ($still_running), force stopping..."
+            sudo pkill -9 -f hostapd >/dev/null 2>&1 || true
+            sudo pkill -9 -f dnsmasq >/dev/null 2>&1 || true
+            sleep 2
+        fi
+        
+        print_status "✅ Existing hotspot stopped successfully"
+    else
+        print_status "✅ No existing hotspot detected, proceeding with fresh setup"
+    fi
+}
+
 # Main setup function
 setup_hotspot() {
     print_header "GAME HUB HOTSPOT SETUP"
+    
+    # Check if hotspot is already running and stop it if needed
+    check_hotspot_running
     
     # Initial checks
     check_root
