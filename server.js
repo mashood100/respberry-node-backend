@@ -972,77 +972,131 @@ app.get('/api/stats/', (req, res) => {
 // File System API endpoints for game setup
 const os = require('os');
 
-// Get available storage devices/drives
+// Get available USB storage devices only
 app.get('/api/filesystem/drives/', (req, res) => {
     try {
         const drives = [];
         
         if (process.platform === 'win32') {
-            // Windows - enumerate drive letters
-            for (let i = 65; i <= 90; i++) { // A-Z
-                const driveLetter = String.fromCharCode(i) + ':';
-                const drivePath = driveLetter + '\\';
-                try {
-                    if (fs.existsSync(drivePath)) {
-                        const stats = fs.statSync(drivePath);
+            // Windows - detect removable drives only
+            const { execSync } = require('child_process');
+            try {
+                const output = execSync('wmic logicaldisk where "DriveType=2" get DeviceID,VolumeName,Size /format:csv', { encoding: 'utf8' });
+                const lines = output.split('\n').filter(line => line.trim() && !line.includes('Node'));
+                
+                lines.forEach(line => {
+                    const parts = line.split(',');
+                    if (parts.length >= 2 && parts[1]) {
+                        const driveLetter = parts[1].trim();
+                        const volumeName = parts[2] ? parts[2].trim() : 'USB Drive';
+                        const size = parts[3] ? parseInt(parts[3].trim()) : null;
+                        
                         drives.push({
-                            name: driveLetter,
-                            path: drivePath,
-                            type: 'drive',
-                            size: null // Could add size detection later
+                            name: `${volumeName} (${driveLetter})`,
+                            path: driveLetter + '\\',
+                            type: 'usb',
+                            size: size
                         });
                     }
-                } catch (err) {
-                    // Drive not accessible, skip
-                }
+                });
+            } catch (err) {
+                console.log('No removable drives found on Windows');
             }
         } else {
-            // Unix-like systems (Linux, macOS, Raspberry Pi)
-            drives.push({
-                name: 'Root (/)',
-                path: '/',
-                type: 'drive',
-                size: null
-            });
+            // Unix-like systems (Linux, macOS, Raspberry Pi) - detect USB drives
+            const usbMounts = [];
             
-            // Add common mount points
-            const commonMounts = ['/home', '/Users', '/mnt', '/media', '/Volumes'];
-            commonMounts.forEach(mountPath => {
+            // For Raspberry Pi/Linux - check /media and /mnt for USB drives
+            const usbMountPaths = ['/media', '/mnt'];
+            
+            usbMountPaths.forEach(basePath => {
                 try {
-                    if (fs.existsSync(mountPath)) {
-                        const items = fs.readdirSync(mountPath);
-                        items.forEach(item => {
-                            const fullPath = path.join(mountPath, item);
+                    if (fs.existsSync(basePath)) {
+                        const users = fs.readdirSync(basePath);
+                        users.forEach(user => {
+                            const userPath = path.join(basePath, user);
                             try {
-                                const stats = fs.statSync(fullPath);
+                                const stats = fs.statSync(userPath);
                                 if (stats.isDirectory()) {
-                                    drives.push({
-                                        name: `${item} (${mountPath})`,
-                                        path: fullPath,
-                                        type: 'mount',
-                                        size: null
+                                    const drives = fs.readdirSync(userPath);
+                                    drives.forEach(drive => {
+                                        const drivePath = path.join(userPath, drive);
+                                        try {
+                                            const driveStats = fs.statSync(drivePath);
+                                            if (driveStats.isDirectory()) {
+                                                usbMounts.push({
+                                                    name: `USB: ${drive}`,
+                                                    path: drivePath,
+                                                    type: 'usb',
+                                                    size: null
+                                                });
+                                            }
+                                        } catch (err) {
+                                            // Skip inaccessible drives
+                                        }
                                     });
                                 }
                             } catch (err) {
-                                // Skip inaccessible directories
+                                // Skip if not a directory or not accessible
                             }
                         });
                     }
                 } catch (err) {
-                    // Mount point doesn't exist or not accessible
+                    // Mount point doesn't exist
                 }
             });
+            
+            // For macOS - check /Volumes for external drives (excluding Macintosh HD)
+            if (process.platform === 'darwin') {
+                try {
+                    if (fs.existsSync('/Volumes')) {
+                        const volumes = fs.readdirSync('/Volumes');
+                        volumes.forEach(volume => {
+                            // Skip internal drives
+                            if (!volume.includes('Macintosh') && volume !== '.') {
+                                const volumePath = path.join('/Volumes', volume);
+                                try {
+                                    const stats = fs.statSync(volumePath);
+                                    if (stats.isDirectory()) {
+                                        usbMounts.push({
+                                            name: `USB: ${volume}`,
+                                            path: volumePath,
+                                            type: 'usb',
+                                            size: null
+                                        });
+                                    }
+                                } catch (err) {
+                                    // Skip inaccessible volumes
+                                }
+                            }
+                        });
+                    }
+                } catch (err) {
+                    // /Volumes doesn't exist or not accessible
+                }
+            }
+            
+            drives.push(...usbMounts);
         }
         
-        res.json({
-            success: true,
-            drives: drives
-        });
+        // If no USB drives found, return appropriate message
+        if (drives.length === 0) {
+            res.json({
+                success: false,
+                message: 'No USB drives detected. Please connect a USB drive and try again.',
+                drives: []
+            });
+        } else {
+            res.json({
+                success: true,
+                drives: drives
+            });
+        }
     } catch (error) {
-        console.error('Error getting drives:', error);
+        console.error('Error detecting USB drives:', error);
         res.json({
             success: false,
-            message: error.message,
+            message: 'Failed to detect USB drives: ' + error.message,
             drives: []
         });
     }

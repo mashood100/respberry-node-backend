@@ -1,79 +1,79 @@
 {
-    "questions": [
-        {
-            "question": "Which metal is liquid at room temperature?",
-            "correct": { "text": "Mercury" },
-            "wrong": ["Lead", "Aluminum", "Copper"]
-        },
-        {
-            "question": "Which country invented paper?",
-            "correct": { "text": "China" },
-            "wrong": ["Egypt", "India", "Greece"]
-        },
-        {
-            "question": "What is the capital of Canada?",
-            "correct": { "text": "Ottawa" },
-            "wrong": ["Toronto", "Vancouver", "Montreal"]
-        },
-        {
-            "question": "Which is the fastest land animal?",
-            "correct": { "text": "Cheetah" },
-            "wrong": ["Lion", "Horse", "Leopard"]
-        },
-        {
-            "question": "Which language has the most native speakers?",
-            "correct": { "text": "Mandarin Chinese" },
-            "wrong": ["English", "Spanish", "Hindi"]
-        },
-        {
-            "question": "Which planet has the most moons?",
-            "correct": { "text": "Saturn" },
-            "wrong": ["Jupiter", "Mars", "Neptune"]
-        },
-        {
-            "question": "What is the boiling point of water in Celsius?",
-            "correct": { "text": "100°C" },
-            "wrong": ["90°C", "80°C", "120°C"]
-        },
-        {
-            "question": "Which organ in the human body produces insulin?",
-            "correct": { "text": "Pancreas" },
-            "wrong": ["Liver", "Kidney", "Stomach"]
-        },
-        {
-            "question": "Which is the tallest mountain in the world?",
-            "correct": { "text": "Mount Everest" },
-            "wrong": ["K2", "Kangchenjunga", "Makalu"]
-        },
-        {
-            "question": "What is the main gas found in Earth's atmosphere?",
-            "correct": { "text": "Nitrogen" },
-            "wrong": ["Oxygen", "Carbon Dioxide", "Helium"]
-        },
-        {
-            "question": "Which sea creature has three hearts?",
-            "correct": { "text": "Octopus" },
-            "wrong": ["Shark", "Dolphin", "Squid"]
-        },
-        {
-            "question": "Which country is home to the kangaroo?",
-            "correct": { "text": "Australia" },
-            "wrong": ["New Zealand", "South Africa", "Brazil"]
-        },
-        {
-            "question": "What is the largest internal organ in the human body?",
-            "correct": { "text": "Liver" },
-            "wrong": ["Heart", "Lungs", "Kidneys"]
-        },
-        {
-            "question": "Which element is needed for breathing?",
-            "correct": { "text": "Oxygen" },
-            "wrong": ["Nitrogen", "Carbon", "Hydrogen"]
-        },
-        {
-            "question": "What is the hardest natural substance on Earth?",
-            "correct": { "text": "Diamond" },
-            "wrong": ["Gold", "Steel", "Quartz"]
-        }
-    ]
+  "questions": [
+    {
+      "question": "What is the largest organ in the human body?",
+      "correct": { "text": "Skin" },
+      "wrong": ["Liver", "Heart", "Brain"]
+    },
+    {
+      "question": "Which planet is closest to the Sun?",
+      "correct": { "text": "Mercury" },
+      "wrong": ["Venus", "Earth", "Mars"]
+    },
+    {
+      "question": "What gas do humans exhale?",
+      "correct": { "text": "Carbon Dioxide" },
+      "wrong": ["Oxygen", "Nitrogen", "Hydrogen"]
+    },
+    {
+      "question": "Who wrote the play 'Romeo and Juliet'?",
+      "correct": { "text": "William Shakespeare" },
+      "wrong": ["Charles Dickens", "Jane Austen", "Mark Twain"]
+    },
+    {
+      "question": "Which metal is commonly used in electrical wiring?",
+      "correct": { "text": "Copper" },
+      "wrong": ["Iron", "Aluminum", "Gold"]
+    },
+    {
+      "question": "What is the hardest bone in the human body?",
+      "correct": { "text": "Jawbone" },
+      "wrong": ["Femur", "Skull", "Spine"]
+    },
+    {
+      "question": "Which country is famous for the pyramids?",
+      "correct": { "text": "Egypt" },
+      "wrong": ["Mexico", "Peru", "India"]
+    },
+    {
+      "question": "What is the primary source of energy for the Earth?",
+      "correct": { "text": "The Sun" },
+      "wrong": ["The Moon", "Wind", "Geothermal"]
+    },
+    {
+      "question": "What is the chemical formula for table salt?",
+      "correct": { "text": "NaCl" },
+      "wrong": ["H2O", "CO2", "C6H12O6"]
+    },
+    {
+      "question": "Who painted the Mona Lisa?",
+      "correct": { "text": "Leonardo da Vinci" },
+      "wrong": ["Vincent van Gogh", "Pablo Picasso", "Michelangelo"]
+    },
+    {
+      "question": "Which organ is responsible for filtering blood?",
+      "correct": { "text": "Kidneys" },
+      "wrong": ["Liver", "Lungs", "Heart"]
+    },
+    {
+      "question": "Which continent is the largest by land area?",
+      "correct": { "text": "Asia" },
+      "wrong": ["Africa", "North America", "Europe"]
+    },
+    {
+      "question": "What is the name of the process plants use to make food?",
+      "correct": { "text": "Photosynthesis" },
+      "wrong": ["Respiration", "Digestion", "Fermentation"]
+    },
+    {
+      "question": "Which language is primarily spoken in Brazil?",
+      "correct": { "text": "Portuguese" },
+      "wrong": ["Spanish", "French", "English"]
+    },
+    {
+      "question": "What is the freezing point of water in Fahrenheit?",
+      "correct": { "text": "32°F" },
+      "wrong": ["0°F", "100°F", "212°F"]
+    }
+  ]
 }
