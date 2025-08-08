@@ -738,4 +738,48 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # Start the Node.js server
-$NODE_CMD server.js 
+$NODE_CMD server.js &
+SERVER_PID=$!
+
+# Wait for server to start
+echo "🔄 Waiting for server to start..."
+sleep 5
+
+# Check if server is running
+if kill -0 $SERVER_PID 2>/dev/null; then
+    # Open browser to trivia page
+    TRIVIA_URL="http://$DETECTED_IP:$SERVER_PORT/trivia"
+    echo "🌐 Opening browser to: $TRIVIA_URL"
+    
+    # Cross-platform browser opening for Raspberry Pi
+    if command -v xdg-open > /dev/null 2>&1; then
+        xdg-open "$TRIVIA_URL" 2>/dev/null &
+        echo "✅ Browser opened successfully"
+    elif command -v chromium-browser > /dev/null 2>&1; then
+        chromium-browser --kiosk "$TRIVIA_URL" 2>/dev/null &
+        echo "✅ Chromium browser opened in kiosk mode"
+    elif [ -x /usr/bin/chromium-browser ]; then
+        /usr/bin/chromium-browser --kiosk "$TRIVIA_URL" 2>/dev/null &
+        echo "✅ Chromium browser opened in kiosk mode"
+    elif command -v firefox > /dev/null 2>&1; then
+        firefox "$TRIVIA_URL" 2>/dev/null &
+        echo "✅ Firefox browser opened"
+    elif command -v python3 > /dev/null 2>&1; then
+        python3 -c "import webbrowser; webbrowser.open('$TRIVIA_URL')" 2>/dev/null &
+        echo "✅ Browser opened via Python"
+    else
+        echo "⚠️  Could not auto-open browser. Please manually navigate to: $TRIVIA_URL"
+    fi
+    
+    echo ""
+    echo "🎮 Game Hub server is running!"
+    echo "📱 Trivia game available at: $TRIVIA_URL"
+    echo "💡 Press Ctrl+C to stop the server"
+    echo ""
+    
+    # Wait for the server process to complete
+    wait $SERVER_PID
+else
+    echo "❌ Server failed to start"
+    exit 1
+fi 
