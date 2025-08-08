@@ -84,7 +84,7 @@ function showQuickReplaceConfirmation() {
     `;
 }
 
-async function executeReplaceTriviaFolder() {
+async function executeReplaceTriviaFolder(sourcePath) {
     const settingsContent = document.querySelector('.settings-content');
     
     // Show processing state
@@ -98,7 +98,7 @@ async function executeReplaceTriviaFolder() {
         </div>
         <div style="text-align: center; padding: 40px;">
             <div style="font-size: 4em; animation: bounce 1s ease-in-out infinite;">🔄</div>
-            <p style="margin-top: 20px; font-size: 1.2em;">Replacing trivia_game folder...</p>
+            <p style="margin-top: 20px; font-size: 1.2em;">Copying trivia_game folder...</p>
         </div>
         <style>
             @keyframes bounce {
@@ -109,9 +109,18 @@ async function executeReplaceTriviaFolder() {
     `;
 
     try {
+        const requestBody = {};
+        
+        if (sourcePath) {
+            // Copy from selected folder to project folder
+            requestBody.sourcePath = sourcePath;
+        }
+        // If no sourcePath, it will use the default behavior (quick replace)
+        
         const response = await fetch('/api/replace-trivia-folder/', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
@@ -144,8 +153,10 @@ function showReplaceSuccess(message, details) {
             
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0;">
                 <h5 style="margin: 0 0 10px 0;">📁 Details:</h5>
-                <p><strong>Location:</strong> <code style="background: white; padding: 2px 6px; border-radius: 3px;">${details.folderPath}</code></p>
-                <p><strong>Files Created:</strong> ${details.filesCreated.join(', ')}</p>
+                ${details.sourcePath ? `<p><strong>Copied From:</strong> <code style="background: white; padding: 2px 6px; border-radius: 3px;">${details.sourcePath}</code></p>` : ''}
+                <p><strong>Target Location:</strong> <code style="background: white; padding: 2px 6px; border-radius: 3px;">${details.targetPath || details.folderPath}</code></p>
+                ${details.itemsCopied ? `<p><strong>Items Copied:</strong> ${details.itemsCopied.join(', ')}</p>` : ''}
+                ${details.filesCreated ? `<p><strong>Files Created:</strong> ${details.filesCreated.join(', ')}</p>` : ''}
                 ${details.folderExisted ? `<p><strong>Previous folder:</strong> Successfully removed</p>` : ''}
             </div>
         </div>
@@ -403,25 +414,31 @@ function displayFolderBrowser(currentPath, folders, locationName) {
                 </code>
             </div>
             
-            // <div class="folder-actions" style="margin: 15px 0;">
-            //     ${parentPath && parentPath !== currentPath ? `
-            //         <button class="settings-btn settings-btn-secondary" onclick="showFolderBrowser('${parentPath}', 'Parent Folder')" style="margin-right: 10px;">
-            //            Back
-            //         </button>
-            //     ` : ''}
+             <div class="folder-actions" style="margin: 15px 0;">
+                 ${parentPath && parentPath !== currentPath ? `
+                    <button class="settings-btn settings-btn-secondary" onclick="showFolderBrowser('${parentPath}', 'Parent Folder')" style="margin-right: 10px;">
+                      Back
+                   </button>
+               ` : ''}
            
 
             <div class="folder-list" style="max-height: 250px; overflow-y: auto; border: 2px solid #ddd; border-radius: 8px; padding: 10px;">
                 ${folders.length === 0 ? 
                     '<p style="text-align: center; color: #666; padding: 20px;">No folders found in this location</p>' 
                     : 
-                    folders.map(folder => `
-                        <div class="folder-item" onclick="showFolderBrowser('${folder.path.replace(/'/g, "\\'")}', '${folder.name.replace(/'/g, "\\'")}')">
-                            <span class="folder-icon">📂</span>
-                            <span class="folder-name">${folder.name}</span>
-                            <span class="folder-arrow">→</span>
-                        </div>
-                    `).join('')
+                                         folders.map(folder => {
+                         const isTriviaGame = folder.name.toLowerCase() === 'trivia_game';
+                         const onclickAction = isTriviaGame 
+                             ? `confirmReplaceTriviaGame('${folder.path.replace(/'/g, "\\'")}')` 
+                             : `showFolderBrowser('${folder.path.replace(/'/g, "\\'")}', '${folder.name.replace(/'/g, "\\'")}')`; 
+                         return `
+                             <div class="folder-item ${isTriviaGame ? 'trivia-game-folder' : ''}" onclick="${onclickAction}">
+                                 <span class="folder-icon">${isTriviaGame ? '🎮' : '📂'}</span>
+                                 <span class="folder-name">${folder.name}${isTriviaGame ? ' (Click to Replace)' : ''}</span>
+                                 <span class="folder-arrow">${isTriviaGame ? '🔄' : '→'}</span>
+                             </div>
+                         `;
+                     }).join('')
                 }
             </div>
         </div>
@@ -473,40 +490,47 @@ function displayFolderBrowser(currentPath, folders, locationName) {
                 color: #007bff;
                 font-weight: bold;
             }
+            .trivia-game-folder {
+                background-color: #f0f7fa; /* Light blue background */
+                border-left: 4px solid #40c4ff; /* Blue border */
+            }
+            .trivia-game-folder:hover {
+                background-color: #e0f2f7; /* Slightly darker blue on hover */
+            }
         `;
         document.head.appendChild(style);
     }
 }
 
-function confirmCustomGameSetup(targetPath) {
+function confirmReplaceTriviaGame(sourcePath) {
     const settingsContent = document.querySelector('.settings-content');
     settingsContent.innerHTML = `
         <div class="settings-close" onclick="closeSettingsModal()" title="Close Settings">
             ✕
         </div>
         <div class="settings-header">
-            <h2 class="settings-title">⚠️ Confirm Custom Setup</h2>
-            <p class="settings-subtitle">Ready to create trivia folder</p>
+            <h2 class="settings-title">⚠️ Confirm Replace Trivia Game</h2>
+            <p class="settings-subtitle">Ready to copy the trivia_game folder</p>
         </div>
         
         <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 10px; padding: 20px; margin: 20px 0;">
-            <h4 style="margin: 0 0 10px 0; color: #856404;">📋 Setup Details:</h4>
-            <p><strong>Location:</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">${targetPath}</code></p>
-            <p><strong>Folder Name:</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">trivia_game</code></p>
+            <h4 style="margin: 0 0 10px 0; color: #856404;">📋 Copy Details:</h4>
+            <p><strong>From (Source):</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">${sourcePath}</code></p>
+            <p><strong>To (Target):</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">./static/trivia_game</code></p>
             <p style="margin: 15px 0 5px 0; color: #856404;"><strong>⚠️ Important:</strong></p>
             <ul style="margin: 5px 0; padding-left: 20px; color: #856404;">
-                <li>If a "trivia_game" folder exists, it will be replaced</li>
-                <li>A new trivia folder structure will be created</li>
-                <li>Fresh trivia questions will be generated</li>
+                <li>The project's trivia_game folder will be completely replaced</li>
+                <li>All contents from the source folder will be copied</li>
+                <li>The game will use the new folder after restart</li>
             </ul>
         </div>
 
         <div class="settings-actions">
-            <button class="settings-btn settings-btn-secondary" onclick="displayFolderBrowser('${targetPath}', [], 'Current Location')">
+            <button class="settings-btn settings-btn-secondary" onclick="showFolderBrowser('${sourcePath.substring(0, sourcePath.lastIndexOf('/'))}', 'Parent Folder')">
                 ← Back
             </button>
-            <button class="settings-btn settings-btn-success" onclick="executeCustomGameSetup('${targetPath}')">
-                🚀 Create Trivia Folder
+            <button class="settings-btn settings-btn-success" onclick="executeReplaceTriviaFolder('${sourcePath}')">
+                🔄 Copy and Replace
             </button>
         </div>
     `;

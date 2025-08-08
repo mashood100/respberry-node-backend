@@ -1,44 +1,45 @@
 {
     "questions": [
         {
-            "question": "What is the capital city of France?",
+            "question": "Which European city is famous for the Eiffel Tower?",
             "correct": { "text": "Paris" },
             "wrong": ["London", "Berlin", "Madrid"]
         },
         {
-            "question": "Which planet is known as the Red Planet?",
+            "question": "Which planet is the fourth from the Sun?",
             "correct": { "text": "Mars" },
             "wrong": ["Venus", "Jupiter", "Saturn"]
         },
         {
-            "question": "What is the largest mammal in the world?",
+            "question": "Which marine animal holds the record for largest size?",
             "correct": { "text": "Blue Whale" },
             "wrong": ["African Elephant", "Giraffe", "Sperm Whale"]
         },
         {
-            "question": "In which year did World War II end?",
+            "question": "Which year marks the official end of the Second World War?",
             "correct": { "text": "1945" },
             "wrong": ["1943", "1944", "1946"]
         },
         {
-            "question": "What is the chemical symbol for gold?",
+            "question": "What is the periodic table symbol for the precious metal gold?",
             "correct": { "text": "Au" },
             "wrong": ["Go", "Gd", "Ag"]
         },
         {
-            "question": "Who painted the Mona Lisa?",
+            "question": "Who created the famous artwork called The Last Supper?",
             "correct": { "text": "Leonardo da Vinci" },
             "wrong": ["Pablo Picasso", "Vincent van Gogh", "Michelangelo"]
         },
         {
-            "question": "What is the smallest country in the world?",
+            "question": "Which country is the smallest independent state on Earth?",
             "correct": { "text": "Vatican City" },
             "wrong": ["Monaco", "San Marino", "Liechtenstein"]
         },
         {
-            "question": "Which element has the atomic number 1?",
+            "question": "Which gas is the first element in the periodic table?",
             "correct": { "text": "Hydrogen" },
             "wrong": ["Helium", "Oxygen", "Carbon"]
         }
     ]
-} 
+}
+

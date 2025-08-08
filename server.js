@@ -29,6 +29,62 @@ const gameData = {
     activeContentId: null
 };
 
+// Load questions from JSON file
+function loadTriviaQuestions() {
+    try {
+        const questionsPath = path.join(__dirname, 'static', 'trivia_game', 'trivia_questions.json');
+        const questionsData = JSON.parse(fs.readFileSync(questionsPath, 'utf8'));
+        
+        // Transform questions from JSON format to server format
+        const transformedQuestions = questionsData.questions.map(q => {
+            // Create options array by combining correct answer with wrong answers
+            const allOptions = [q.correct.text, ...q.wrong];
+            
+            // Shuffle the options to randomize their order
+            const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
+            
+            return {
+                question: q.question,
+                correct: q.correct.text,
+                options: shuffledOptions
+            };
+        });
+        
+        console.log(`✅ Loaded ${transformedQuestions.length} questions from JSON file`);
+        return transformedQuestions;
+    } catch (error) {
+        console.error('❌ Error loading questions from JSON file:', error);
+        
+        // Fallback to default questions if JSON loading fails
+        console.log('🔄 Using fallback questions');
+        return [
+            {
+                question: "What is the capital city of France?",
+                correct: "Paris",
+                options: ["London", "Berlin", "Paris", "Madrid"]
+            },
+            {
+                question: "Which planet is known as the Red Planet?",
+                correct: "Mars", 
+                options: ["Venus", "Mars", "Jupiter", "Saturn"]
+            }
+        ];
+    }
+}
+
+// Function to reload questions from JSON file (useful when questions are updated)
+function reloadTriviaQuestions() {
+    console.log('🔄 Reloading questions from JSON file...');
+    triviaGameState.questions = loadTriviaQuestions();
+    
+    // Reset game state to first question if game is not active
+    if (!triviaGameState.isActive) {
+        triviaGameState.currentQuestionIndex = 0;
+    }
+    
+    console.log(`🎯 Questions reloaded. Total: ${triviaGameState.questions.length}`);
+}
+
 // Multiplayer Trivia Game State
 const triviaGameState = {
     isActive: false,
@@ -40,108 +96,7 @@ const triviaGameState = {
     currentAnswers: new Map(), // sessionId -> answer
     gameTimer: null,
     questionDisplayTimer: null,
-    questions: [
-        {
-            question: "What is the capital city of France?",
-            correct: "Paris",
-            options: ["London", "Berlin", "Paris", "Madrid"]
-        },
-        {
-            question: "Which planet is known as the Red Planet?",
-            correct: "Mars", 
-            options: ["Venus", "Mars", "Jupiter", "Saturn"]
-        },
-        {
-            question: "What is the largest mammal in the world?",
-            correct: "Blue Whale",
-            options: ["African Elephant", "Blue Whale", "Giraffe", "Sperm Whale"]
-        },
-        {
-            question: "In which year did World War II end?",
-            correct: "1945",
-            options: ["1943", "1944", "1945", "1946"]
-        },
-        {
-            question: "What is the chemical symbol for gold?",
-            correct: "Au",
-            options: ["Go", "Gd", "Au", "Ag"]
-        },
-        {
-            question: "Who painted the Mona Lisa?",
-            correct: "Leonardo da Vinci",
-            options: ["Pablo Picasso", "Leonardo da Vinci", "Vincent van Gogh", "Michelangelo"]
-        },
-        {
-            question: "What is the smallest country in the world?",
-            correct: "Vatican City",
-            options: ["Monaco", "Vatican City", "San Marino", "Liechtenstein"]
-        },
-        {
-            question: "Which element has the atomic number 1?",
-            correct: "Hydrogen",
-            options: ["Helium", "Hydrogen", "Oxygen", "Carbon"]
-        },
-        {
-            question: "What is the hardest natural substance on Earth?",
-            correct: "Diamond",
-            options: ["Diamond", "Gold", "Iron", "Quartz"]
-        },
-        {
-            question: "How many continents are there?",
-            correct: "7",
-            options: ["5", "6", "7", "8"]
-        },
-        {
-            question: "What is the currency of Japan?",
-            correct: "Yen",
-            options: ["Yuan", "Yen", "Won", "Rupee"]
-        },
-        {
-            question: "Which ocean is the largest?",
-            correct: "Pacific Ocean",
-            options: ["Atlantic Ocean", "Indian Ocean", "Pacific Ocean", "Arctic Ocean"]
-        },
-        {
-            question: "What gas do plants absorb from the atmosphere?",
-            correct: "Carbon Dioxide",
-            options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"]
-        },
-        {
-            question: "Who wrote 'Romeo and Juliet'?",
-            correct: "William Shakespeare",
-            options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"]
-        },
-        {
-            question: "What is the speed of light in vacuum?",
-            correct: "299,792,458 m/s",
-            options: ["299,792,458 m/s", "300,000,000 m/s", "299,000,000 m/s", "298,792,458 m/s"]
-        },
-        {
-            question: "Which planet has the most moons?",
-            correct: "Saturn",
-            options: ["Jupiter", "Saturn", "Earth", "Mars"]
-        },
-        {
-            question: "What is the largest desert in the world?",
-            correct: "Antarctica",
-            options: ["Sahara", "Arabian", "Antarctica", "Gobi"]
-        },
-        {
-            question: "Which programming language is known as the 'language of the web'?",
-            correct: "JavaScript",
-            options: ["Python", "Java", "JavaScript", "C++"]
-        },
-        {
-            question: "What is the formula for water?",
-            correct: "H2O",
-            options: ["H2O", "CO2", "O2", "H2SO4"]
-        },
-        {
-            question: "Who developed the theory of relativity?",
-            correct: "Albert Einstein",
-            options: ["Isaac Newton", "Albert Einstein", "Galileo Galilei", "Stephen Hawking"]
-        }
-    ],
+    questions: loadTriviaQuestions(), // Load questions from JSON file
     eliminatedAnswers: [] // New array to track eliminated wrong answers
 };
 
@@ -1265,17 +1220,57 @@ app.post('/api/filesystem/setup-game/', (req, res) => {
 // Simple API to replace trivia_game folder
 app.post('/api/replace-trivia-folder/', (req, res) => {
     try {
-        const triviaGamePath = path.join(__dirname, 'static', 'trivia_game');
+        const { folderPath, sourcePath } = req.body;
+        let triviaGamePath;
         
-        // Check if the folder exists
+        if (folderPath) {
+            // If folderPath is provided, it's the complete path to the trivia_game folder
+            triviaGamePath = folderPath;
+        } else {
+            // Default path for local static folder
+            triviaGamePath = path.join(__dirname, 'static', 'trivia_game');
+        }
+        
+        console.log(`Attempting to replace trivia_game folder at: ${triviaGamePath}`);
+        
+        if (sourcePath) {
+            console.log(`Source folder: ${sourcePath}`);
+            
+            // Verify source folder exists
+            if (!fs.existsSync(sourcePath)) {
+                return res.json({
+                    success: false,
+                    message: `Source folder does not exist: ${sourcePath}`
+                });
+            }
+            
+            // Verify source is a directory
+            const sourceStats = fs.statSync(sourcePath);
+            if (!sourceStats.isDirectory()) {
+                return res.json({
+                    success: false,
+                    message: `Source path is not a directory: ${sourcePath}`
+                });
+            }
+        }
+        
+        // Check if the target folder exists
         const folderExists = fs.existsSync(triviaGamePath);
         
         if (folderExists) {
-            // Remove existing folder
+            // Remove existing folder completely
             try {
+                console.log(`Removing existing folder: ${triviaGamePath}`);
                 fs.rmSync(triviaGamePath, { recursive: true, force: true });
-                console.log('Removed existing trivia_game folder');
+                
+                // Verify the folder was actually deleted
+                if (fs.existsSync(triviaGamePath)) {
+                    throw new Error('Folder still exists after deletion attempt');
+                }
+                
+                console.log('Successfully removed existing trivia_game folder');
             } catch (err) {
+                console.error('Error removing folder:', err);
                 return res.json({
                     success: false,
                     message: `Failed to remove existing folder: ${err.message}`
@@ -1283,45 +1278,119 @@ app.post('/api/replace-trivia-folder/', (req, res) => {
             }
         }
         
-        // Create new trivia_game folder
-        try {
-            fs.mkdirSync(triviaGamePath, { recursive: true });
-            
-            // Create a new trivia_questions.json file
-            const newQuestions = [
-                {
-                    "question": "What is the capital of France?",
-                    "options": ["London", "Berlin", "Paris", "Madrid"],
-                    "correct": 2
-                },
-                {
-                    "question": "Which planet is known as the Red Planet?",
-                    "options": ["Venus", "Mars", "Jupiter", "Saturn"],
-                    "correct": 1
+        // Wait a moment to ensure file system operations are complete
+        setTimeout(() => {
+            // Create new trivia_game folder
+            try {
+                console.log(`Creating new trivia_game folder at: ${triviaGamePath}`);
+                fs.mkdirSync(triviaGamePath, { recursive: true });
+                
+                if (sourcePath) {
+                    // Copy contents from source folder to target folder
+                    console.log(`Copying contents from ${sourcePath} to ${triviaGamePath}`);
+                    
+                    const copyRecursive = (src, dest) => {
+                        const items = fs.readdirSync(src);
+                        
+                        items.forEach(item => {
+                            const srcPath = path.join(src, item);
+                            const destPath = path.join(dest, item);
+                            const stats = fs.statSync(srcPath);
+                            
+                            if (stats.isDirectory()) {
+                                // Create directory and copy recursively
+                                fs.mkdirSync(destPath, { recursive: true });
+                                copyRecursive(srcPath, destPath);
+                            } else {
+                                // Copy file
+                                fs.copyFileSync(srcPath, destPath);
+                            }
+                        });
+                    };
+                    
+                    copyRecursive(sourcePath, triviaGamePath);
+                    
+                    // List what was copied
+                    const copiedItems = fs.readdirSync(triviaGamePath);
+                    console.log(`Successfully copied items:`, copiedItems);
+                    
+                    res.json({
+                        success: true,
+                        message: `Trivia game folder replaced with contents from: ${sourcePath}`,
+                        details: {
+                            sourcePath: sourcePath,
+                            targetPath: triviaGamePath,
+                            folderExisted: folderExists,
+                            itemsCopied: copiedItems
+                        }
+                    });
+                } else {
+                    // Create a new trivia_questions.json file with fresh content (fallback for quick replace)
+                    const questionsData = {
+                        "questions": [
+                            {
+                                "question": "What is the capital of France?",
+                                "correct": { "text": "Paris" },
+                                "wrong": ["London", "Berlin", "Madrid"]
+                            },
+                            {
+                                "question": "Which planet is known as the Red Planet?",
+                                "correct": { "text": "Mars" },
+                                "wrong": ["Venus", "Jupiter", "Saturn"]
+                            },
+                            {
+                                "question": "What is 2 + 2?",
+                                "correct": { "text": "4" },
+                                "wrong": ["3", "5", "6"]
+                            },
+                            {
+                                "question": "Which is the largest ocean?",
+                                "correct": { "text": "Pacific" },
+                                "wrong": ["Atlantic", "Indian", "Arctic"]
+                            },
+                            {
+                                "question": "NEW QUESTION: What year was JavaScript created?",
+                                "correct": { "text": "1995" },
+                                "wrong": ["1990", "1999", "2000"]
+                            },
+                            {
+                                "question": "NEW QUESTION: What does HTML stand for?",
+                                "correct": { "text": "HyperText Markup Language" },
+                                "wrong": ["High Tech Modern Language", "Home Tool Markup Language", "Hyperlink Text Management Language"]
+                            }
+                        ]
+                    };
+                    
+                    const questionsFilePath = path.join(triviaGamePath, 'trivia_questions.json');
+                    fs.writeFileSync(questionsFilePath, JSON.stringify(questionsData, null, 2));
+                    
+                    // Verify the file was created
+                    if (!fs.existsSync(questionsFilePath)) {
+                        throw new Error('Failed to create trivia_questions.json file');
+                    }
+                    
+                    console.log(`Successfully created new trivia_questions.json at: ${questionsFilePath}`);
+                    
+                    res.json({
+                        success: true,
+                        message: `Trivia game folder completely replaced at: ${triviaGamePath}`,
+                        details: {
+                            folderPath: triviaGamePath,
+                            folderExisted: folderExists,
+                            filesCreated: ['trivia_questions.json'],
+                            questionsCount: questionsData.questions.length
+                        }
+                    });
                 }
-            ];
-            
-            fs.writeFileSync(
-                path.join(triviaGamePath, 'trivia_questions.json'),
-                JSON.stringify(newQuestions, null, 2)
-            );
-            
-            res.json({
-                success: true,
-                message: `Trivia game folder replaced successfully at: ${triviaGamePath}`,
-                details: {
-                    folderPath: triviaGamePath,
-                    folderExisted: folderExists,
-                    filesCreated: ['trivia_questions.json']
-                }
-            });
-            
-        } catch (err) {
-            res.json({
-                success: false,
-                message: `Failed to create new folder: ${err.message}`
-            });
-        }
+                
+            } catch (err) {
+                console.error('Error creating new folder:', err);
+                res.json({
+                    success: false,
+                    message: `Failed to create new folder: ${err.message}`
+                });
+            }
+        }, 100); // Small delay to ensure file system operations complete
         
     } catch (error) {
         console.error('Error replacing trivia folder:', error);
