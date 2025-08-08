@@ -196,6 +196,48 @@ detect_wifi_interface() {
     fi
 }
 
+# Function to validate and resolve conflicts before setup
+validate_and_resolve_conflicts() {
+    print_status "Validating system for potential conflicts..."
+    
+    # Check if the target IP is already in use
+    if ip addr show | grep -q "$HOTSPOT_IP"; then
+        local conflict_interface=$(ip addr show | grep -B2 "$HOTSPOT_IP" | grep -E '^[0-9]+:' | awk -F: '{print $2}' | tr -d ' ')
+        print_warning "IP $HOTSPOT_IP is already in use by interface: $conflict_interface"
+        
+        if [ "$conflict_interface" != "$WIFI_INTERFACE" ]; then
+            print_status "Removing IP from conflicting interface..."
+            sudo ip addr del "$HOTSPOT_IP/24" dev "$conflict_interface" 2>/dev/null || true
+        fi
+    fi
+    
+    # Check for existing dnsmasq or other DNS services
+    if pgrep dnsmasq > /dev/null; then
+        print_warning "Existing dnsmasq process found, stopping it..."
+        sudo pkill -f dnsmasq 2>/dev/null || true
+        sleep 1
+    fi
+    
+    # Check for services using port 53
+    local port53_users=$(sudo lsof -ti :53 2>/dev/null | wc -l)
+    if [ "$port53_users" -gt 0 ]; then
+        print_warning "Found $port53_users process(es) using port 53"
+        print_status "Clearing port 53 conflicts..."
+        sudo fuser -k 53/tcp 2>/dev/null || true
+        sudo fuser -k 53/udp 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Check for existing hostapd processes
+    if pgrep hostapd > /dev/null; then
+        print_warning "Existing hostapd process found, stopping it..."
+        sudo pkill -f hostapd 2>/dev/null || true
+        sleep 1
+    fi
+    
+    print_status "Conflict validation completed"
+}
+
 # Function to check and install dependencies
 install_dependencies() {
     print_status "Checking and installing dependencies..."
@@ -205,7 +247,7 @@ install_dependencies() {
     show_spinner $! "Updating package list"
     
     # Install required packages with wireless tools
-    packages=("hostapd" "dnsmasq" "iptables" "rfkill" "wireless-tools" "iw" "firmware-brcm80211")
+    packages=("hostapd" "dnsmasq" "iptables" "rfkill" "wireless-tools" "iw" "firmware-brcm80211" "psmisc")
     
     for package in "${packages[@]}"; do
         if ! dpkg -l | grep -q "^ii  $package "; then
@@ -229,6 +271,30 @@ stop_conflicting_services() {
     # Stop existing hostapd and dnsmasq processes first
     sudo pkill -f hostapd >/dev/null 2>&1 || true
     sudo pkill -f dnsmasq >/dev/null 2>&1 || true
+    
+    # Wait for processes to fully terminate
+    sleep 2
+    
+    # Force kill any remaining dnsmasq processes
+    sudo pkill -9 -f dnsmasq >/dev/null 2>&1 || true
+    
+    # Check for processes using port 53 and kill them
+    print_status "Checking for processes using DNS port 53..."
+    local dns_pids=$(sudo lsof -ti :53 2>/dev/null || true)
+    if [ -n "$dns_pids" ]; then
+        print_warning "Found processes using port 53, terminating them..."
+        echo "$dns_pids" | xargs -r sudo kill -9 2>/dev/null || true
+        sleep 1
+    fi
+    
+    # Check for processes using the hotspot IP address
+    print_status "Checking for processes using IP $HOTSPOT_IP..."
+    local ip_pids=$(sudo lsof -ti @$HOTSPOT_IP 2>/dev/null || true)
+    if [ -n "$ip_pids" ]; then
+        print_warning "Found processes using IP $HOTSPOT_IP, terminating them..."
+        echo "$ip_pids" | xargs -r sudo kill -9 2>/dev/null || true
+        sleep 1
+    fi
     
     # Handle wpa_supplicant more carefully
     if pgrep wpa_supplicant >/dev/null; then
@@ -339,18 +405,31 @@ EOF
 configure_network() {
     print_status "Configuring network interface..."
     
+    # Check if IP is already in use by another interface
+    local existing_interface=$(ip route | grep "$HOTSPOT_IP" | awk '{print $3}' | head -1 2>/dev/null || true)
+    if [ -n "$existing_interface" ] && [ "$existing_interface" != "$WIFI_INTERFACE" ]; then
+        print_warning "IP $HOTSPOT_IP is already assigned to interface $existing_interface, removing..."
+        sudo ip addr del "$HOTSPOT_IP/24" dev "$existing_interface" 2>/dev/null || true
+    fi
+    
     # Bring down the interface first
     sudo ip link set "$WIFI_INTERFACE" down 2>/dev/null || true
     sleep 1
     
-    # Remove any existing IP addresses
+    # Remove any existing IP addresses from our interface
     sudo ip addr flush dev "$WIFI_INTERFACE" 2>/dev/null || true
+    
+    # Remove any existing routes for our IP range
+    sudo ip route del 192.168.4.0/24 2>/dev/null || true
     
     # Configure the interface with static IP
     if sudo ip addr add "$HOTSPOT_IP/24" dev "$WIFI_INTERFACE"; then
         print_status "IP address $HOTSPOT_IP assigned to $WIFI_INTERFACE"
     else
         print_error "Failed to assign IP address to $WIFI_INTERFACE"
+        # Try to diagnose the issue
+        print_error "Checking for IP conflicts..."
+        ip addr show | grep -E "(192\.168\.4\.|$HOTSPOT_IP)" || true
         exit 1
     fi
     
@@ -408,7 +487,19 @@ start_hotspot_services() {
     
     # Start dnsmasq with better error handling
     print_status "Starting dnsmasq..."
-    if sudo dnsmasq -C /etc/dnsmasq.conf; then
+    
+    # First test the configuration
+    if ! sudo dnsmasq --test -C /etc/dnsmasq.conf >/dev/null 2>&1; then
+        print_error "❌ dnsmasq configuration test failed"
+        print_error "Check configuration with: sudo dnsmasq --test -C /etc/dnsmasq.conf"
+        return 1
+    fi
+    
+    # Try to start dnsmasq and capture any errors
+    local dnsmasq_output=$(sudo dnsmasq -C /etc/dnsmasq.conf 2>&1)
+    local dnsmasq_exit_code=$?
+    
+    if [ $dnsmasq_exit_code -eq 0 ]; then
         sleep 2
         if pgrep dnsmasq > /dev/null; then
             print_status "✅ dnsmasq started successfully"
@@ -418,8 +509,36 @@ start_hotspot_services() {
         fi
     else
         print_error "❌ Failed to start dnsmasq"
-        print_error "Check configuration with: sudo dnsmasq --test -C /etc/dnsmasq.conf"
-        return 1
+        
+        # Check for specific "address already in use" error
+        if echo "$dnsmasq_output" | grep -q "address already in use"; then
+            print_warning "Address conflict detected, attempting to resolve..."
+            
+            # Kill any remaining processes using port 53
+            sudo fuser -k 53/tcp 2>/dev/null || true
+            sudo fuser -k 53/udp 2>/dev/null || true
+            sleep 2
+            
+            # Try starting dnsmasq again
+            print_status "Retrying dnsmasq startup..."
+            if sudo dnsmasq -C /etc/dnsmasq.conf; then
+                sleep 2
+                if pgrep dnsmasq > /dev/null; then
+                    print_status "✅ dnsmasq started successfully on retry"
+                else
+                    print_error "❌ dnsmasq failed to start on retry"
+                    return 1
+                fi
+            else
+                print_error "❌ dnsmasq failed to start even after clearing port conflicts"
+                echo "Error output: $dnsmasq_output"
+                return 1
+            fi
+        else
+            print_error "Error output: $dnsmasq_output"
+            print_error "Check configuration with: sudo dnsmasq --test -C /etc/dnsmasq.conf"
+            return 1
+        fi
     fi
     
     # Final verification
@@ -629,6 +748,9 @@ setup_hotspot() {
     
     # Detect WiFi interface
     detect_wifi_interface
+    
+    # Validate and resolve conflicts early
+    validate_and_resolve_conflicts
     
     # Install dependencies
     install_dependencies
